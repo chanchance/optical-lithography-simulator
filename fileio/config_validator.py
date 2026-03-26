@@ -91,6 +91,8 @@ class ConfigValidator:
                     f'Domain ({domain:.0f}nm) may be too small for λ={wl}nm/NA={na:.2f}; '
                     f'recommend ≥ {min_domain:.0f}nm', 'warning'))
 
+            if not (16 <= grid_size <= 4096):
+                return errors  # grid_size already flagged; skip pixel-size check
             pixel_size = domain / grid_size
             nyq = wl / (4 * na)
             if pixel_size > nyq:
