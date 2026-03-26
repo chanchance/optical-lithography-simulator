@@ -11,6 +11,11 @@ from gui.qt_compat import (
 )
 from core.aberrations import ZERNIKE_TABLE
 
+try:
+    from PySide6.QtWidgets import QStackedWidget, QDialog
+except ImportError:
+    from PyQt5.QtWidgets import QStackedWidget, QDialog  # type: ignore
+
 # ---------------------------------------------------------------------------
 # Preset definitions: (wavelength_nm, NA, sigma_outer, sigma_inner)
 # ---------------------------------------------------------------------------
@@ -258,6 +263,122 @@ class ParameterPanel(QWidget):
 
         layout.addWidget(rcwa_group)
 
+        # ---- Resist Model ----
+        resist_group = QGroupBox("Resist Model")
+        resist_group.setFlat(False)
+        resist_outer = QVBoxLayout(resist_group)
+        resist_outer.setContentsMargins(8, 12, 8, 8)
+        resist_outer.setSpacing(6)
+
+        resist_top_form = QFormLayout()
+        resist_top_form.setSpacing(6)
+
+        self.resist_combo = QComboBox()
+        self.resist_combo.addItems(["Threshold", "Dill ABC", "Chemically Amplified (CA)"])
+        self.resist_combo.setToolTip("Select resist exposure/development model")
+        self.resist_combo.currentIndexChanged.connect(self._on_resist_model_changed)
+        resist_top_form.addRow("Model:", self.resist_combo)
+        resist_outer.addLayout(resist_top_form)
+
+        self.resist_stack = QStackedWidget()
+
+        # Page 0: Threshold
+        thresh_page = QWidget()
+        thresh_form = QFormLayout(thresh_page)
+        thresh_form.setContentsMargins(0, 0, 0, 0)
+        thresh_form.setSpacing(4)
+        self.resist_threshold_sb = QDoubleSpinBox()
+        self.resist_threshold_sb.setRange(0.1, 0.9)
+        self.resist_threshold_sb.setValue(0.30)
+        self.resist_threshold_sb.setDecimals(2)
+        self.resist_threshold_sb.setSingleStep(0.05)
+        self.resist_threshold_sb.setToolTip("Development threshold on normalized intensity")
+        self.resist_threshold_sb.valueChanged.connect(self.params_changed)
+        thresh_form.addRow("Threshold:", self.resist_threshold_sb)
+        self.resist_stack.addWidget(thresh_page)
+
+        # Page 1: Dill ABC
+        dill_page = QWidget()
+        dill_form = QFormLayout(dill_page)
+        dill_form.setContentsMargins(0, 0, 0, 0)
+        dill_form.setSpacing(4)
+        self.dill_A_sb = QDoubleSpinBox()
+        self.dill_A_sb.setRange(0.0, 5.0)
+        self.dill_A_sb.setValue(0.8)
+        self.dill_A_sb.setDecimals(3)
+        self.dill_A_sb.setToolTip("Dill A: bleachable absorption coefficient [1/mJ·cm⁻²]")
+        self.dill_A_sb.valueChanged.connect(self.params_changed)
+        dill_form.addRow("A (bleach):", self.dill_A_sb)
+
+        self.dill_B_sb = QDoubleSpinBox()
+        self.dill_B_sb.setRange(0.0, 5.0)
+        self.dill_B_sb.setValue(0.1)
+        self.dill_B_sb.setDecimals(3)
+        self.dill_B_sb.setToolTip("Dill B: non-bleachable absorption [1/cm]")
+        self.dill_B_sb.valueChanged.connect(self.params_changed)
+        dill_form.addRow("B (non-bleach):", self.dill_B_sb)
+
+        self.dill_C_sb = QDoubleSpinBox()
+        self.dill_C_sb.setRange(0.0, 1.0)
+        self.dill_C_sb.setValue(0.01)
+        self.dill_C_sb.setDecimals(4)
+        self.dill_C_sb.setSingleStep(0.001)
+        self.dill_C_sb.setToolTip("Dill C: exposure rate constant [cm²/mJ]")
+        self.dill_C_sb.valueChanged.connect(self.params_changed)
+        dill_form.addRow("C (rate):", self.dill_C_sb)
+
+        self.dill_peb_sb = QDoubleSpinBox()
+        self.dill_peb_sb.setRange(0.0, 200.0)
+        self.dill_peb_sb.setValue(30.0)
+        self.dill_peb_sb.setSuffix(" nm")
+        self.dill_peb_sb.setDecimals(1)
+        self.dill_peb_sb.setToolTip("Post-exposure bake diffusion sigma (nm)")
+        self.dill_peb_sb.valueChanged.connect(self.params_changed)
+        dill_form.addRow("PEB σ:", self.dill_peb_sb)
+        self.resist_stack.addWidget(dill_page)
+
+        # Page 2: Chemically Amplified (CA)
+        ca_page = QWidget()
+        ca_form = QFormLayout(ca_page)
+        ca_form.setContentsMargins(0, 0, 0, 0)
+        ca_form.setSpacing(4)
+        self.ca_qe_sb = QDoubleSpinBox()
+        self.ca_qe_sb.setRange(0.0, 1.0)
+        self.ca_qe_sb.setValue(0.5)
+        self.ca_qe_sb.setDecimals(3)
+        self.ca_qe_sb.setToolTip("Quantum efficiency: acid molecules generated per absorbed photon")
+        self.ca_qe_sb.valueChanged.connect(self.params_changed)
+        ca_form.addRow("Quantum eff.:", self.ca_qe_sb)
+
+        self.ca_amp_sb = QDoubleSpinBox()
+        self.ca_amp_sb.setRange(1.0, 500.0)
+        self.ca_amp_sb.setValue(50.0)
+        self.ca_amp_sb.setDecimals(1)
+        self.ca_amp_sb.setToolTip("Acid amplification (catalytic chain length)")
+        self.ca_amp_sb.valueChanged.connect(self.params_changed)
+        ca_form.addRow("Amplification:", self.ca_amp_sb)
+
+        self.ca_peb_sb = QDoubleSpinBox()
+        self.ca_peb_sb.setRange(0.0, 200.0)
+        self.ca_peb_sb.setValue(25.0)
+        self.ca_peb_sb.setSuffix(" nm")
+        self.ca_peb_sb.setDecimals(1)
+        self.ca_peb_sb.setToolTip("Post-exposure bake diffusion sigma (nm)")
+        self.ca_peb_sb.valueChanged.connect(self.params_changed)
+        ca_form.addRow("PEB σ:", self.ca_peb_sb)
+        self.resist_stack.addWidget(ca_page)
+
+        resist_outer.addWidget(self.resist_stack)
+
+        self.stack_editor_btn = QPushButton("Stack Editor...")
+        self.stack_editor_btn.setObjectName("secondary")
+        self.stack_editor_btn.setToolTip("Open film stack visual editor (TMM reflectance preview)")
+        self.stack_editor_btn.clicked.connect(self._open_stack_editor)
+        resist_outer.addWidget(self.stack_editor_btn)
+
+        self._film_stack = None
+        layout.addWidget(resist_group)
+
         # ---- Load / Save buttons ----
         btn_row = QHBoxLayout()
         self.load_btn = QPushButton("Load YAML")
@@ -366,7 +487,27 @@ class ParameterPanel(QWidget):
                 "enabled": self.rcwa_enabled_cb.isChecked(),
                 "n_orders": self.rcwa_n_orders_sb.value(),
             },
+            "resist": self._get_resist_config(),
         }
+
+    def _get_resist_config(self) -> dict:
+        idx = self.resist_combo.currentIndex()
+        if idx == 1:  # Dill ABC
+            return {
+                "model": "dill",
+                "A": self.dill_A_sb.value(),
+                "B": self.dill_B_sb.value(),
+                "C": self.dill_C_sb.value(),
+                "peb_sigma_nm": self.dill_peb_sb.value(),
+            }
+        if idx == 2:  # CA
+            return {
+                "model": "ca",
+                "quantum_efficiency": self.ca_qe_sb.value(),
+                "amplification": self.ca_amp_sb.value(),
+                "peb_sigma_nm": self.ca_peb_sb.value(),
+            }
+        return {"model": "threshold", "threshold": self.resist_threshold_sb.value()}
 
     def load_config(self, config):
         litho = config.get("lithography", {})
@@ -405,10 +546,37 @@ class ParameterPanel(QWidget):
         self.rcwa_enabled_cb.setChecked(rcwa.get("enabled", False))
         self.rcwa_n_orders_sb.setValue(rcwa.get("n_orders", 11))
 
+        resist_cfg = config.get("resist", {})
+        model = resist_cfg.get("model", "threshold")
+        model_idx = {"threshold": 0, "dill": 1, "ca": 2}.get(model, 0)
+        self.resist_combo.setCurrentIndex(model_idx)
+        self.resist_threshold_sb.setValue(resist_cfg.get("threshold", 0.30))
+        self.dill_A_sb.setValue(resist_cfg.get("A", 0.8))
+        self.dill_B_sb.setValue(resist_cfg.get("B", 0.1))
+        self.dill_C_sb.setValue(resist_cfg.get("C", 0.01))
+        self.dill_peb_sb.setValue(resist_cfg.get("peb_sigma_nm", 30.0))
+        self.ca_qe_sb.setValue(resist_cfg.get("quantum_efficiency", 0.5))
+        self.ca_amp_sb.setValue(resist_cfg.get("amplification", 50.0))
+        self.ca_peb_sb.setValue(resist_cfg.get("peb_sigma_nm", 25.0))
+
         # Mark as custom after loading
         self.preset_combo.blockSignals(True)
         self.preset_combo.setCurrentText("Custom")
         self.preset_combo.blockSignals(False)
+
+    # ------------------------------------------------------------------
+    # Resist model
+    # ------------------------------------------------------------------
+
+    def _on_resist_model_changed(self, idx: int):
+        self.resist_stack.setCurrentIndex(idx)
+        self.params_changed.emit()
+
+    def _open_stack_editor(self):
+        from gui.dialogs.stack_dialog import StackDialog
+        dlg = StackDialog(self, film_stack=self._film_stack)
+        if dlg.exec() == QDialog.Accepted:
+            self._film_stack = dlg.get_film_stack()
 
     # ------------------------------------------------------------------
     # YAML file I/O
