@@ -108,11 +108,11 @@ class StackDialog(QDialog):
         form.addRow("Material:", self.mat_combo)
 
         self.thick_sb = QDoubleSpinBox()
-        self.thick_sb.setRange(0.1, 10000.0)
+        self.thick_sb.setRange(0.0, 10000.0)
         self.thick_sb.setValue(100.0)
         self.thick_sb.setSuffix(" nm")
         self.thick_sb.setDecimals(1)
-        self.thick_sb.setToolTip("Layer thickness (set 0 for substrate/semi-infinite)")
+        self.thick_sb.setToolTip("Layer thickness. Use 0 for semi-infinite layers (incident medium / substrate).")
         self.thick_sb.valueChanged.connect(self._on_prop_changed)
         form.addRow("Thickness:", self.thick_sb)
 
@@ -200,7 +200,7 @@ class StackDialog(QDialog):
         self.mat_combo.blockSignals(False)
 
         self.thick_sb.blockSignals(True)
-        self.thick_sb.setValue(max(0.1, layer.thickness_nm))
+        self.thick_sb.setValue(layer.thickness_nm)
         self.thick_sb.blockSignals(False)
 
         is_custom = layer.material.lower() == 'custom'
