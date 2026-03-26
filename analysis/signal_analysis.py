@@ -113,7 +113,9 @@ class SignalAnalyzer:
             return 0.0
 
         valid_doses = dose_factors[in_spec]
-        dose_latitude_pct = (np.max(valid_doses) - np.min(valid_doses)) / np.mean(valid_doses) * 100.0
+        # Normalise against nominal dose (1.0), not the mean of the window,
+        # so the result is independent of asymmetric dose windows.
+        dose_latitude_pct = (np.max(valid_doses) - np.min(valid_doses)) * 100.0
         return float(dose_latitude_pct)
 
     def smooth_profile(self, profile: np.ndarray, sigma_px: float = 1.0) -> np.ndarray:

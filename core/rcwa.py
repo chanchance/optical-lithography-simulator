@@ -82,9 +82,9 @@ class RCWAEngine:
         pitch_nm: grating pitch in nm
         Returns: complex 1D near-field amplitude (same size as mask_profile)
         """
-        if wavelength_nm:
+        if wavelength_nm is not None:
             self.params.wavelength_nm = wavelength_nm
-        if n_orders:
+        if n_orders is not None:
             self.params.n_orders = n_orders
 
         result = self.compute_diffraction_orders(mask_profile, pitch_nm)
