@@ -234,6 +234,7 @@ class SimulationPipeline:
             'n_kernels': litho.get('n_kernels', 10),
             'use_vector': litho.get('use_vector', False),
             'polarization': sim_cfg.get('polarization', litho.get('polarization', 'unpolarized')),
+            'use_gpu': sim_cfg.get('use_gpu', False),
         }
 
         engine = FourierOpticsEngine(engine_params)
