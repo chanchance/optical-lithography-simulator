@@ -397,9 +397,12 @@ class FDTDSimulator:
         Ey = fields['Ey']
         Ez = fields['Ez']
 
-        # Interpolate to cell centers by averaging over the staggered dims
-        Ex_c = 0.5 * (Ex[:, :-1, :-1] + Ex[:, 1:, 1:])
-        Ey_c = 0.5 * (Ey[:-1, :, :-1] + Ey[1:, :, 1:])
-        Ez_c = 0.5 * (Ez[:-1, :-1, :] + Ez[1:, 1:, :])
+        # Interpolate to cell centers by bilinear average over all 4 corner
+        # combinations of the two staggered dimensions.  Diagonal-only averaging
+        # (e.g. Ex[:,:-1,:-1] + Ex[:,1:,1:]) misses the cross terms and gives
+        # incorrect cell-center values.
+        Ex_c = 0.25 * (Ex[:, :-1, :-1] + Ex[:, 1:, :-1] + Ex[:, :-1, 1:] + Ex[:, 1:, 1:])
+        Ey_c = 0.25 * (Ey[:-1, :, :-1] + Ey[1:, :, :-1] + Ey[:-1, :, 1:] + Ey[1:, :, 1:])
+        Ez_c = 0.25 * (Ez[:-1, :-1, :] + Ez[1:, :-1, :] + Ez[:-1, 1:, :] + Ez[1:, 1:, :])
 
         return np.abs(Ex_c)**2 + np.abs(Ey_c)**2 + np.abs(Ez_c)**2
