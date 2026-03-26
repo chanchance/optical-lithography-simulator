@@ -14,7 +14,8 @@ from gui.qt_compat import (
 from gui import theme
 
 import matplotlib
-matplotlib.use('Agg')
+# Do NOT call matplotlib.use('Agg') — it conflicts with the Qt backend
+# (backend_qtagg) already active in the main window.
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
