@@ -24,14 +24,17 @@ class ParameterSweep:
         param_path: dot-separated config key, e.g. "lithography.defocus_nm"
         Returns: list of SimResult objects"""
         results = []
+        n = len(values)
         for i, val in enumerate(values):
             cfg = copy.deepcopy(base_config)
             self._set_nested(cfg, param_path, val)
             if on_progress:
-                on_progress(f"Sweep {i+1}/{len(values)}: {param_path}={val}",
-                            int(100 * i / len(values)))
+                on_progress(f"Sweep {i+1}/{n}: {param_path}={val}",
+                            int(100 * i / n))
             result = self.pipeline.run(cfg, layout_path)
             results.append(result)
+        if on_progress and n > 0:
+            on_progress(f"Sweep complete: {param_path}", 100)
         return results
 
     def sweep_2d(
@@ -53,10 +56,13 @@ class ParameterSweep:
                 cfg = copy.deepcopy(base_config)
                 self._set_nested(cfg, param1_path, v1)
                 self._set_nested(cfg, param2_path, v2)
+                step = i * M + j
                 if on_progress:
-                    on_progress(f"FEM {i*M+j+1}/{total}", int(100*(i*M+j)/total))
+                    on_progress(f"FEM {step+1}/{total}", int(100 * step / total))
                 result = self.pipeline.run(cfg, layout_path)
                 cd_matrix[i, j] = result.cd_nm
+        if on_progress and total > 0:
+            on_progress("FEM complete", 100)
         return cd_matrix
 
     def _set_nested(self, config: dict, path: str, value):

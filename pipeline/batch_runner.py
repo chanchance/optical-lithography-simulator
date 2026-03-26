@@ -62,8 +62,12 @@ class BatchRunner:
 
         return results
 
+    _SUPPORTED_PARAMS = frozenset(
+        ('defocus_nm', 'NA', 'wavelength_nm', 'sigma_outer', 'sigma_inner'))
+
     def _apply_params(self, config: Dict, params: Dict) -> Dict:
         """Apply flat parameter dict to nested config."""
+        import warnings
         litho = config.setdefault('lithography', {})
         illum = litho.setdefault('illumination', {})
 
@@ -78,6 +82,12 @@ class BatchRunner:
                 illum['sigma_outer'] = v
             elif k == 'sigma_inner':
                 illum['sigma_inner'] = v
+            else:
+                warnings.warn(
+                    "BatchRunner: sweep parameter {!r} is not supported and will be "
+                    "ignored. Supported params: {}.".format(
+                        k, ', '.join(sorted(self._SUPPORTED_PARAMS))),
+                    UserWarning, stacklevel=3)
 
         return config
 

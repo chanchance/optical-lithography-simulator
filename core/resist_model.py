@@ -47,6 +47,12 @@ class DillResist(BaseResist):
     def expose(self, aerial_image, dose=1.0):
         # M(r) after exposure: M = exp(-A*C*dose*I) approximately
         # Full model: integrate dM/dt = -A*M*I*C over exposure time
+        if self.B != 0.0:
+            import warnings
+            warnings.warn(
+                "DillResist.B={} has no effect in the thin-resist approximation "
+                "(depth-resolved B absorption requires ResistProfile3D).".format(self.B),
+                UserWarning, stacklevel=2)
         exposure = aerial_image * dose * self.C
         M = np.exp(-self.A * exposure)  # PAC concentration
         return M
