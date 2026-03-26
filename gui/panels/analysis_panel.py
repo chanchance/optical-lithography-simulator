@@ -23,6 +23,7 @@ import matplotlib.cm as cm
 
 class _BossungWorker(QObject):
     finished = Signal(list)
+    progress = Signal(str, int)
     error = Signal(str)
 
     def __init__(self, config, layout_path, focus_range, dose_min, dose_max, cd_tol):
@@ -36,26 +37,45 @@ class _BossungWorker(QObject):
 
     def run(self):
         try:
-            from analysis.advanced_metrics import BossungAnalyzer
-            from pipeline.simulation_pipeline import SimulationPipeline
+            from pipeline.parameter_sweep import ParameterSweep
+            from analysis.advanced_metrics import BossungCurve
 
-            pipeline = SimulationPipeline()
-            layout_path = self._layout_path
-
-            def pipeline_fn(config, defocus_nm, dose_factor):
-                cfg = copy.deepcopy(config)
-                cfg.setdefault('lithography', {})['defocus_nm'] = defocus_nm
-                cfg.setdefault('simulation', {})['dose_factor'] = dose_factor
-                return pipeline.run(cfg, layout_path).cd_nm
-
+            sweep = ParameterSweep()
             dose_factors = np.linspace(self._dose_min, self._dose_max, 5).tolist()
-            analyzer = BossungAnalyzer(pipeline_fn)
-            curves = analyzer.compute(
+
+            def on_progress(msg, pct):
+                self.progress.emit(msg, pct)
+
+            bossung_data = sweep.bossung_sweep(
                 self._config,
+                self._layout_path,
                 focus_range_nm=self._focus_range,
+                n_focus=17,
                 dose_factors=dose_factors,
-                cd_tolerance_pct=self._cd_tol,
             )
+            focus_arr = bossung_data['focus_nm']
+            cd_by_dose = bossung_data['cd_by_dose']
+
+            curves = []
+            for dose, cd_vals in cd_by_dose.items():
+                cd_arr = np.array(cd_vals)
+                try:
+                    coeffs = np.polyfit(focus_arr, cd_arr, 2)
+                    best_focus = -coeffs[1] / (2 * coeffs[0]) if coeffs[0] != 0 else 0.0
+                    best_focus = float(np.clip(best_focus, focus_arr[0], focus_arr[-1]))
+                except Exception:
+                    best_focus = float(focus_arr[len(focus_arr) // 2])
+                cd_nominal = float(cd_arr[len(cd_arr) // 2])
+                tol = cd_nominal * self._cd_tol / 100.0
+                in_window = np.abs(cd_arr - cd_nominal) <= tol
+                dof = float(np.sum(in_window) * (self._focus_range / max(len(focus_arr) - 1, 1)))
+                curves.append(BossungCurve(
+                    dose_factor=dose,
+                    focus_points=focus_arr.tolist(),
+                    cd_points=cd_vals,
+                    best_focus_nm=best_focus,
+                    depth_of_focus_nm=dof,
+                ))
             self.finished.emit(curves)
         except Exception as e:
             import traceback
@@ -64,12 +84,14 @@ class _BossungWorker(QObject):
 
 class _BossungThread(QThread):
     finished = Signal(list)
+    progress = Signal(str, int)
     error = Signal(str)
 
     def __init__(self, config, layout_path, focus_range, dose_min, dose_max, cd_tol, parent=None):
         super().__init__(parent)
         self._worker = _BossungWorker(config, layout_path, focus_range, dose_min, dose_max, cd_tol)
         self._worker.finished.connect(self.finished)
+        self._worker.progress.connect(self.progress)
         self._worker.error.connect(self.error)
 
     def run(self):
@@ -78,6 +100,7 @@ class _BossungThread(QThread):
 
 class _FEMWorker(QObject):
     finished = Signal(object)
+    progress = Signal(str, int)
     error = Signal(str)
 
     def __init__(self, config, layout_path, focus_range, dose_min, dose_max):
@@ -90,26 +113,24 @@ class _FEMWorker(QObject):
 
     def run(self):
         try:
-            from analysis.advanced_metrics import build_fem
-            from pipeline.simulation_pipeline import SimulationPipeline
+            from pipeline.parameter_sweep import ParameterSweep
+            from analysis.advanced_metrics import FocusExposureMatrix
 
-            pipeline = SimulationPipeline()
-            layout_path = self._layout_path
+            focus_values = np.linspace(-self._focus_range / 2, self._focus_range / 2, 7)
+            dose_values = np.linspace(self._dose_min, self._dose_max, 7)
 
-            def pipeline_fn(config, defocus_nm, dose_factor):
-                cfg = copy.deepcopy(config)
-                cfg.setdefault('lithography', {})['defocus_nm'] = defocus_nm
-                cfg.setdefault('simulation', {})['dose_factor'] = dose_factor
-                return pipeline.run(cfg, layout_path).cd_nm
+            def on_progress(msg, pct):
+                self.progress.emit(msg, pct)
 
-            fem = build_fem(
-                pipeline_fn,
+            sweep = ParameterSweep()
+            cd_matrix = sweep.sweep_2d(
                 self._config,
-                focus_range_nm=self._focus_range,
-                dose_range=(self._dose_min, self._dose_max),
-                focus_steps=7,
-                dose_steps=7,
+                self._layout_path,
+                'lithography.defocus_nm', focus_values.tolist(),
+                'lithography.dose_factor', dose_values.tolist(),
+                on_progress=on_progress,
             )
+            fem = FocusExposureMatrix(focus_values, dose_values, cd_matrix)
             self.finished.emit(fem)
         except Exception as e:
             import traceback
@@ -118,12 +139,14 @@ class _FEMWorker(QObject):
 
 class _FEMThread(QThread):
     finished = Signal(object)
+    progress = Signal(str, int)
     error = Signal(str)
 
     def __init__(self, config, layout_path, focus_range, dose_min, dose_max, parent=None):
         super().__init__(parent)
         self._worker = _FEMWorker(config, layout_path, focus_range, dose_min, dose_max)
         self._worker.finished.connect(self.finished)
+        self._worker.progress.connect(self.progress)
         self._worker.error.connect(self.error)
 
     def run(self):
@@ -136,6 +159,8 @@ class AnalysisPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._result = None
+        self._config = None
+        self._layout_path = None
         self._bossung_thread = None
         self._fem_thread = None
         self._build_ui()
@@ -288,6 +313,8 @@ class AnalysisPanel(QWidget):
     def set_result(self, sim_result):
         """Store simulation result and sync CD target from result."""
         self._result = sim_result
+        self._config = getattr(sim_result, 'config', None)
+        self._layout_path = getattr(sim_result, 'layout_path', None)
         if sim_result.cd_nm > 0:
             self.cd_target_sb.setValue(sim_result.cd_nm)
         self.status_label.setText(
@@ -306,7 +333,7 @@ class AnalysisPanel(QWidget):
     # ── Bossung ────────────────────────────────────────────────────────
 
     def _run_bossung(self):
-        if self._result is None:
+        if self._result is None or self._config is None:
             self.status_label.setText("Run a simulation first.")
             return
         if self._bossung_thread and self._bossung_thread.isRunning():
@@ -314,8 +341,8 @@ class AnalysisPanel(QWidget):
         self.bossung_btn.setEnabled(False)
         self.status_label.setText("Computing Bossung curves...")
         self._bossung_thread = _BossungThread(
-            config=self._result.config,
-            layout_path=self._result.layout_path,
+            config=self._config,
+            layout_path=self._layout_path,
             focus_range=self.focus_range_sb.value(),
             dose_min=self.dose_min_sb.value(),
             dose_max=self.dose_max_sb.value(),
@@ -323,6 +350,7 @@ class AnalysisPanel(QWidget):
             parent=self,
         )
         self._bossung_thread.finished.connect(self._on_bossung_done)
+        self._bossung_thread.progress.connect(lambda msg, _pct: self.status_label.setText(msg))
         self._bossung_thread.error.connect(self._on_analysis_error)
         self._bossung_thread.start()
 
@@ -417,7 +445,7 @@ class AnalysisPanel(QWidget):
     # ── FEM ────────────────────────────────────────────────────────────
 
     def _run_fem(self):
-        if self._result is None:
+        if self._result is None or self._config is None:
             self.status_label.setText("Run a simulation first.")
             return
         if self._fem_thread and self._fem_thread.isRunning():
@@ -425,14 +453,15 @@ class AnalysisPanel(QWidget):
         self.fem_btn.setEnabled(False)
         self.status_label.setText("Computing Focus-Exposure Matrix...")
         self._fem_thread = _FEMThread(
-            config=self._result.config,
-            layout_path=self._result.layout_path,
+            config=self._config,
+            layout_path=self._layout_path,
             focus_range=self.focus_range_sb.value(),
             dose_min=self.dose_min_sb.value(),
             dose_max=self.dose_max_sb.value(),
             parent=self,
         )
         self._fem_thread.finished.connect(self._on_fem_done)
+        self._fem_thread.progress.connect(lambda msg, _pct: self.status_label.setText(msg))
         self._fem_thread.error.connect(self._on_analysis_error)
         self._fem_thread.start()
 
