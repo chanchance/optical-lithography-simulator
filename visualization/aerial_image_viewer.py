@@ -43,7 +43,7 @@ class AerialImageViewer:
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 8))
 
-        im = ax.imshow(intensity_2d.T, origin='lower', cmap=colormap,
+        im = ax.imshow(intensity_2d, origin='lower', cmap=colormap,
                         extent=self._get_extent(), vmin=0, vmax=1,
                         interpolation='bilinear')
 
@@ -97,7 +97,7 @@ class AerialImageViewer:
         x_nm = np.linspace(extent[0], extent[1], self.grid_size)
         y_nm = np.linspace(extent[2], extent[3], self.grid_size)
 
-        ax.contour(x_nm, y_nm, intensity_2d.T,
+        ax.contour(x_nm, y_nm, intensity_2d,
                    levels=[threshold], colors=[color], linewidths=linewidth)
         return ax
 
@@ -159,21 +159,21 @@ class AerialImageViewer:
         fig, axes = plt.subplots(1, 3, figsize=figsize)
 
         # Panel 1: Mask pattern
-        axes[0].imshow(mask_grid.T, origin='lower', cmap='gray',
+        axes[0].imshow(mask_grid, origin='lower', cmap='gray',
                        extent=self._get_extent(), vmin=0, vmax=1)
         axes[0].set_title('Mask Pattern')
         axes[0].set_xlabel('X (nm)')
         axes[0].set_ylabel('Y (nm)')
 
         # Panel 2: Aerial image
-        im = axes[1].imshow(aerial_image.T, origin='lower', cmap='hot',
+        im = axes[1].imshow(aerial_image, origin='lower', cmap='hot',
                             extent=self._get_extent(), vmin=0, vmax=1)
         plt.colorbar(im, ax=axes[1], label='Intensity')
         axes[1].set_title('Aerial Image')
         axes[1].set_xlabel('X (nm)')
 
         # Panel 3: Overlay with threshold contour
-        axes[2].imshow(aerial_image.T, origin='lower', cmap='hot',
+        axes[2].imshow(aerial_image, origin='lower', cmap='hot',
                        extent=self._get_extent(), vmin=0, vmax=1, alpha=0.7)
         self.plot_threshold_contour(axes[2], aerial_image, threshold, 'cyan')
 
@@ -181,7 +181,7 @@ class AerialImageViewer:
         N = self.grid_size
         x_nm = np.linspace(0, self.domain_size_nm, N)
         y_nm = np.linspace(0, self.domain_size_nm, N)
-        axes[2].contour(x_nm, y_nm, mask_grid.T, levels=[0.5],
+        axes[2].contour(x_nm, y_nm, mask_grid, levels=[0.5],
                         colors=['white'], linewidths=1.5, linestyles='--')
         axes[2].set_title('Overlay (cyan=print edge, white=mask edge)')
         axes[2].set_xlabel('X (nm)')

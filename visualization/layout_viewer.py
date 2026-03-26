@@ -113,7 +113,7 @@ class LayoutViewer:
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 8))
 
-        ax.imshow(grid.T, origin='lower', cmap='gray',
+        ax.imshow(grid, origin='lower', cmap='gray',
                   extent=[0, domain_size_nm, 0, domain_size_nm],
                   vmin=0, vmax=1)
         ax.set_xlabel('X (nm)')

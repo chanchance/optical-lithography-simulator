@@ -173,8 +173,9 @@ class FourierOpticsEngine:
             2D float array of intensity I(x,y), normalized to [0,1]
         """
         N = self.grid_size
-        assert mask_transmission.shape == (N, N), \
-            "Mask must be {}x{}, got {}".format(N, N, mask_transmission.shape)
+        if mask_transmission.shape != (N, N):
+            raise ValueError(
+                "Mask must be {}x{}, got {}".format(N, N, mask_transmission.shape))
 
         # Mask diffraction spectrum M(fx, fy) = FFT[t(x,y)]
         M = np.fft.fft2(mask_transmission)
