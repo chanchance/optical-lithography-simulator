@@ -8,7 +8,7 @@ import numpy as np
 from gui.qt_compat import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QFileDialog, QMessageBox, QApplication,
-    QLabel, QFont, QFrame, Qt
+    QLabel, QFont, QFrame, Qt, QCheckBox,
 )
 from gui import theme
 
@@ -39,6 +39,7 @@ class ResultsPanel(QWidget):
         self._extent = None
         self._cb_aerial = None
         self._cb_wf = None
+        self._show_resist_edge: bool = True
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -107,14 +108,21 @@ class ResultsPanel(QWidget):
             "Enter gauge mode: click two points on the aerial image\n"
             "to define a cross-section analysis line.")
 
+        self.show_resist_chk = QCheckBox("Show Resist Edge")
+        self.show_resist_chk.setChecked(True)
+        self.show_resist_chk.setToolTip(
+            "Overlay resist edge contour on the aerial image overlay.")
+
         self.export_png_btn.clicked.connect(lambda: self._export("png"))
         self.export_pdf_btn.clicked.connect(lambda: self._export("pdf"))
         self.copy_table_btn.clicked.connect(self._copy_table_to_clipboard)
         self.add_gauge_btn.clicked.connect(self._toggle_gauge_mode)
         self.clear_gauges_btn.clicked.connect(self._clear_gauges)
+        self.show_resist_chk.toggled.connect(self._on_resist_edge_toggled)
 
         for w in (self.export_png_btn, self.export_pdf_btn, self.copy_table_btn,
-                  self.add_gauge_btn, self.clear_gauges_btn, self.gauge_status):
+                  self.add_gauge_btn, self.clear_gauges_btn,
+                  self.show_resist_chk, self.gauge_status):
             btn_col.addWidget(w)
         btn_col.addStretch()
         bottom.addWidget(btn_frame)
@@ -436,6 +444,45 @@ class ResultsPanel(QWidget):
             ax.tick_params(labelsize=theme.MPL_TICK)
             ax.legend(fontsize=theme.MPL_LEGEND, loc='upper right')
 
+    def _on_resist_edge_toggled(self, checked):
+        self._show_resist_edge = checked
+        if self._result is not None:
+            self._redraw_overlay(self._result)
+            self.canvas.draw_idle()
+
+    def _redraw_overlay(self, result):
+        """Redraw ax_overlay: aerial image + mask contour + optional resist edge."""
+        ax = self.ax_overlay
+        ax.clear()
+        self._style_ax(ax, "Overlay")
+
+        if result.aerial_image is None:
+            ax.set_axis_off()
+            return
+
+        xl, yl, ext = self._pixel_extent(result, result.aerial_image.shape)
+        ax.imshow(result.aerial_image, cmap='inferno', origin='lower',
+                  alpha=0.7, extent=ext, aspect='auto')
+
+        if result.mask_grid is not None:
+            ny, nx = result.mask_grid.shape
+            cx = np.linspace(ext[0], ext[1], nx)
+            cy = np.linspace(ext[2], ext[3], ny)
+            ax.contour(cx, cy, result.mask_grid, levels=[0.5],
+                       colors='cyan', linewidths=0.8)
+
+        resist = getattr(result, 'resist_image', None)
+        if resist is not None and self._show_resist_edge:
+            ry, rx = resist.shape
+            rx_arr = np.linspace(ext[0], ext[1], rx)
+            ry_arr = np.linspace(ext[2], ext[3], ry)
+            ax.contour(rx_arr, ry_arr, resist, levels=[0.5],
+                       colors='white', linewidths=1.5)
+
+        ax.set_xlabel(xl, fontsize=theme.MPL_LABEL)
+        ax.set_ylabel(yl, fontsize=theme.MPL_LABEL)
+        ax.tick_params(labelsize=theme.MPL_TICK)
+
     def _draw_wavefront(self, result):
         """Draw 2D wavefront error map (ax_wf) from Zernike aberration config."""
         ax = self.ax_wf
@@ -547,23 +594,7 @@ class ResultsPanel(QWidget):
             self.ax_mask.set_axis_off()
 
         # ---- Overlay ----
-        self.ax_overlay.clear()
-        self._style_ax(self.ax_overlay, "Overlay")
-        if result.aerial_image is not None and result.mask_grid is not None:
-            xl, yl, ext = self._pixel_extent(result, result.aerial_image.shape)
-            self.ax_overlay.imshow(result.aerial_image, cmap='inferno', origin='lower',
-                                   alpha=0.7, extent=ext, aspect='auto')
-            # contour() does not accept 'extent'; pass explicit X, Y arrays
-            ny, nx = result.mask_grid.shape
-            cx = np.linspace(ext[0], ext[1], nx)
-            cy = np.linspace(ext[2], ext[3], ny)
-            self.ax_overlay.contour(cx, cy, result.mask_grid, levels=[0.5],
-                                    colors='cyan', linewidths=0.8)
-            self.ax_overlay.set_xlabel(xl, fontsize=theme.MPL_LABEL)
-            self.ax_overlay.set_ylabel(yl, fontsize=theme.MPL_LABEL)
-            self.ax_overlay.tick_params(labelsize=theme.MPL_TICK)
-        else:
-            self.ax_overlay.set_axis_off()
+        self._redraw_overlay(result)
 
         # ---- Wavefront error ----
         self._wfe_rms = 0.0
@@ -581,15 +612,33 @@ class ResultsPanel(QWidget):
 
     def _update_table(self, result):
         wfe_rms = getattr(self, '_wfe_rms', 0.0)
+
+        # Resist model type from config
+        try:
+            resist_model = result.config["resist"]["model"]
+        except Exception:
+            resist_model = None
+        resist_label = resist_model.capitalize() if resist_model else "—"
+
+        # Pattern area fraction from resist_image
+        resist = getattr(result, 'resist_image', None)
+        if resist is not None and resist.size > 0:
+            pattern_pct = float(np.mean(resist > 0.5) * 100.0)
+            pattern_str = "{:.1f}%".format(pattern_pct)
+        else:
+            pattern_str = "—"
+
         rows = [
-            ("CD (nm)",  "{:.2f}".format(result.cd_nm)),
-            ("NILS",     "{:.3f}".format(result.nils)),
-            ("Contrast", "{:.3f}".format(result.contrast)),
-            ("DOF (nm)", "{:.1f}".format(result.metrics.get('dof_nm', 0.0))),
-            ("I_max",    "{:.3f}".format(result.metrics.get('i_max', 0.0))),
-            ("I_min",    "{:.3f}".format(result.metrics.get('i_min', 0.0))),
-            ("WFE RMS",  "{:.4f} \u03bb".format(wfe_rms)),
-            ("Status",   result.status),
+            ("CD (nm)",       "{:.2f}".format(result.cd_nm)),
+            ("NILS",          "{:.3f}".format(result.nils)),
+            ("Contrast",      "{:.3f}".format(result.contrast)),
+            ("DOF (nm)",      "{:.1f}".format(result.metrics.get('dof_nm', 0.0))),
+            ("I_max",         "{:.3f}".format(result.metrics.get('i_max', 0.0))),
+            ("I_min",         "{:.3f}".format(result.metrics.get('i_min', 0.0))),
+            ("WFE RMS",       "{:.4f} \u03bb".format(wfe_rms)),
+            ("Resist",        resist_label),
+            ("Pattern Area",  pattern_str),
+            ("Status",        result.status),
         ]
         self.table.setRowCount(len(rows))
         bold_font = QFont()
