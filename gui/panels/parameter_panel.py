@@ -402,7 +402,7 @@ class ParameterPanel(QWidget):
 
         self.dill_B_sb = QDoubleSpinBox()
         self.dill_B_sb.setRange(0.0, 5.0)
-        self.dill_B_sb.setValue(0.1)
+        self.dill_B_sb.setValue(0.0)
         self.dill_B_sb.setDecimals(3)
         self.dill_B_sb.setToolTip("Dill B: non-bleachable absorption [1/cm]")
         self.dill_B_sb.valueChanged.connect(self.params_changed)
@@ -719,7 +719,7 @@ class ParameterPanel(QWidget):
         self.resist_combo.setCurrentIndex(model_idx)
         self.resist_threshold_sb.setValue(resist_cfg.get("threshold", 0.30))
         self.dill_A_sb.setValue(resist_cfg.get("A", 0.8))
-        self.dill_B_sb.setValue(resist_cfg.get("B", 0.1))
+        self.dill_B_sb.setValue(resist_cfg.get("B", 0.0))
         self.dill_C_sb.setValue(resist_cfg.get("C", 1.0))
         self.dill_peb_sb.setValue(resist_cfg.get("peb_sigma_nm", 30.0))
         self.ca_qe_sb.setValue(resist_cfg.get("quantum_efficiency", 0.5))

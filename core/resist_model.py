@@ -39,7 +39,7 @@ class DillResist(BaseResist):
     C: exposure rate constant [cm2/mJ]
     """
     A: float = 0.8    # typical positive resist
-    B: float = 0.1
+    B: float = 0.0    # non-bleachable absorption; 0.0 = not modelled (thin-resist approx)
     C: float = 1.0    # normalized exposure rate (dose=1.0 → ~45% bleaching at full intensity)
     peb_sigma_nm: float = 30.0  # PEB diffusion sigma
     domain_size_nm: float = 2000.0
@@ -130,7 +130,7 @@ def create_resist(config: dict) -> BaseResist:
     if model == 'dill':
         return DillResist(
             A=resist_cfg.get('A', 0.8),
-            B=resist_cfg.get('B', 0.1),
+            B=resist_cfg.get('B', 0.0),
             C=resist_cfg.get('C', 1.0),
             peb_sigma_nm=resist_cfg.get('peb_sigma_nm', 30.0),
             domain_size_nm=domain_nm,

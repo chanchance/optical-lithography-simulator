@@ -114,7 +114,7 @@ class ConfigValidator:
 
         if model == 'dill':
             A = resist.get('A', 0.8)
-            B = resist.get('B', 0.1)
+            B = resist.get('B', 0.0)
             C = resist.get('C', 1.0)
             if A <= 0:
                 errors.append(ValidationError('resist.A',
