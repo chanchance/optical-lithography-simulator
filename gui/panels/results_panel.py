@@ -703,12 +703,50 @@ class ResultsPanel(QWidget):
         if self._result is None:
             QMessageBox.information(self, "No results", "Run a simulation first.")
             return
-        ext = "PNG files (*.png)" if fmt == "png" else "PDF files (*.pdf)"
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Export Results", "results." + fmt, ext)
-        if path:
-            try:
-                self.figure.savefig(path, dpi=150, bbox_inches='tight',
-                                    facecolor=theme.BG_PRIMARY)
-            except Exception as e:
-                QMessageBox.warning(self, "Export Error", str(e))
+
+        if fmt in ('png', 'pdf'):
+            ext_filter = "PNG files (*.png)" if fmt == "png" else "PDF files (*.pdf)"
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Export Results", "results." + fmt, ext_filter)
+            if path:
+                try:
+                    self.figure.savefig(path, dpi=150, bbox_inches='tight',
+                                        facecolor=theme.BG_PRIMARY)
+                except Exception as e:
+                    QMessageBox.warning(self, "Export Error", str(e))
+            return
+
+        filter_str = (
+            "CSV files (*.csv);;"
+            "HDF5 files (*.h5 *.hdf5);;"
+            "PNG image (*.png);;"
+            "Text report (*.txt)"
+        )
+        path, selected_filter = QFileDialog.getSaveFileName(
+            self, "Export Results", "results.csv", filter_str)
+        if not path:
+            return
+
+        if 'CSV' in selected_filter:
+            export_fmt = 'csv'
+        elif 'HDF5' in selected_filter:
+            export_fmt = 'hdf5'
+        elif 'PNG' in selected_filter:
+            export_fmt = 'png'
+        else:
+            export_fmt = 'report'
+
+        try:
+            from fileio.results_exporter import ResultsExporter
+            exp = ResultsExporter()
+            if export_fmt == 'csv':
+                exp.export_csv(self._result, path)
+            elif export_fmt == 'hdf5':
+                exp.export_hdf5(self._result, path)
+            elif export_fmt == 'png':
+                exp.export_png(self._result, path, dpi=150)
+            else:
+                exp.export_report(self._result, path)
+            QMessageBox.information(self, "Export", "Saved to:\n{}".format(path))
+        except Exception as e:
+            QMessageBox.warning(self, "Export Error", str(e))
