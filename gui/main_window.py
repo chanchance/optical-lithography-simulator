@@ -143,8 +143,14 @@ class MainWindow(QMainWindow):
         # Wire signals
         self.sim_panel.run_requested.connect(self._run_simulation)
         self.sim_panel.stop_requested.connect(self._stop_simulation)
-        self.layout_panel.layout_loaded.connect(
-            lambda p: self._status("Layout loaded: " + os.path.basename(p)))
+        self.layout_panel.layout_loaded.connect(self._on_layout_loaded)
+
+    def _on_layout_loaded(self, path):
+        basename = os.path.basename(path)
+        self.setWindowTitle("Optical Lithography Simulator — {}".format(basename))
+        self._status("Layout loaded: {}".format(basename))
+        if hasattr(self, 'layout_label'):
+            self.layout_label.setText(basename)
 
     def _build_menu(self):
         mb = self.menuBar()
@@ -207,7 +213,10 @@ class MainWindow(QMainWindow):
         self.sim_info_label = QLabel("Mode: Fourier  |  Grid: 256×256  |  Points: 65,536")
         self.sim_info_label.setObjectName("caption")
         sb = self.statusBar()
+        self.layout_label = QLabel("No layout loaded")
+        self.layout_label.setObjectName("caption")
         sb.addWidget(self.status_label, 1)
+        sb.addPermanentWidget(self.layout_label)
         sb.addPermanentWidget(self.sim_info_label)
         sb.addPermanentWidget(self.status_progress)
 
@@ -216,26 +225,30 @@ class MainWindow(QMainWindow):
         tb.setMovable(False)
         tb.setToolButtonStyle(Qt.ToolButtonTextOnly)
 
-        act_open = QAction("Open", self)
+        act_open = QAction("Open Layout", self)
         act_open.triggered.connect(self._open_layout)
+        act_open.setToolTip("GDS/OAS 레이아웃 열기 (Ctrl+O)")
         tb.addAction(act_open)
 
         tb.addSeparator()
 
-        act_run = QAction("Run", self)
+        act_run = QAction("Run ▶", self)
         act_run.triggered.connect(
             lambda: (self.tabs.setCurrentIndex(2), self.sim_panel._on_run())
         )
+        act_run.setToolTip("시뮬레이션 실행 (Ctrl+R)")
         tb.addAction(act_run)
 
-        act_stop = QAction("Stop", self)
+        act_stop = QAction("Stop ■", self)
         act_stop.triggered.connect(self._stop_simulation)
+        act_stop.setToolTip("시뮬레이션 중지 (Esc)")
         tb.addAction(act_stop)
 
         tb.addSeparator()
 
-        act_source = QAction("Source", self)
+        act_source = QAction("Source...", self)
         act_source.triggered.connect(self._show_source_dialog)
+        act_source.setToolTip("조명원(k-space) 미리보기 / 설정")
         tb.addAction(act_source)
 
     def _build_shortcuts(self):
@@ -408,11 +421,17 @@ class MainWindow(QMainWindow):
 
     def _show_about(self):
         QMessageBox.about(self, "About",
-            "Optical Lithography Simulator\n"
-            "Based on Pistor (2001) — FDTD + Fourier Optics\n\n"
-            "Supports GDS/OAS layout input, ArF/EUV wavelengths,\n"
-            "Fourier optics (Abbe) and FDTD simulation modes.\n\n"
-            "Python + PySide6 + NumPy + SciPy")
+            "Optical Lithography Simulator  v1.0\n\n"
+            "Based on Pistor (2001) PhD Dissertation, UCB\n"
+            "Fourier Optics (Abbe/Hopkins SOCS) + FDTD\n\n"
+            "Supported:\n"
+            "  \u2022 ArF 193nm / KrF 248nm / EUV 13.5nm\n"
+            "  \u2022 Scalar / Vector (Jones matrix) imaging\n"
+            "  \u2022 Threshold / Dill ABC / CA resist models\n"
+            "  \u2022 RCWA near-field, TMM film stack\n\n"
+            "Shortcuts:  Ctrl+R = Run   Esc = Stop\n"
+            "            Ctrl+1~6 = Tab navigation\n\n"
+            "Python + PySide6 + NumPy + SciPy + gdstk")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
