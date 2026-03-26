@@ -226,13 +226,18 @@ class FocusExposureMatrix:
         """EL at given focus: % dose range keeping CD in spec."""
         fi = np.argmin(np.abs(self.focus_values - focus_nm))
         cd_row = self.cd_matrix[fi]
-        cd_ref = float(cd_row[len(cd_row) // 2])
+        # Reference CD at nominal dose (1.0), not the middle array index,
+        # so asymmetric dose ranges are handled correctly.
+        ni = int(np.argmin(np.abs(self.dose_values - 1.0)))
+        cd_ref = float(cd_row[ni])
         tol = cd_ref * 0.10
         in_window = np.abs(cd_row - cd_ref) <= tol
         if np.sum(in_window) < 2:
             return 0.0
         dose_in = self.dose_values[in_window]
-        return float((dose_in.max() - dose_in.min()) / np.mean(dose_in) * 100)
+        # Normalise against nominal dose (1.0); do NOT divide by window mean
+        # which varies with asymmetric sweep ranges.
+        return float((dose_in.max() - dose_in.min()) * 100)
 
 
 def build_fem(
