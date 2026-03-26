@@ -6,6 +6,9 @@ import numpy as np
 from typing import List, Tuple, Optional, Dict
 from dataclasses import dataclass
 
+# NumPy 2.0 renamed np.trapz → np.trapezoid; keep both supported
+_trapezoid = getattr(np, 'trapezoid', np.trapz)
+
 
 @dataclass
 class ProcessWindowResult:
@@ -72,7 +75,7 @@ class ProcessWindow:
         # Process window area = integral of EL over focus range
         # (area under the EL-vs-focus curve, not the bounding box el_max * dof)
         if len(focus_axis_nm) >= 2:
-            pw_area = float(np.trapz(el_per_focus, focus_axis_nm))
+            pw_area = float(_trapezoid(el_per_focus, focus_axis_nm))
         else:
             pw_area = 0.0
 
