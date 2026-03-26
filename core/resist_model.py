@@ -120,7 +120,7 @@ def create_resist(config: dict) -> BaseResist:
         return DillResist(
             A=resist_cfg.get('A', 0.8),
             B=resist_cfg.get('B', 0.1),
-            C=resist_cfg.get('C', 0.01),
+            C=resist_cfg.get('C', 1.0),
             peb_sigma_nm=resist_cfg.get('peb_sigma_nm', 30.0),
             domain_size_nm=domain_nm,
         )
