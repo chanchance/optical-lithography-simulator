@@ -1,6 +1,6 @@
 """
 End-to-end simulation pipeline for optical lithography simulator.
-Orchestrates: GDS load → mask creation → source setup → aerial image → analysis.
+Orchestrates: GDS load → mask creation → source setup → aerial image → resist → analysis.
 """
 import os
 import warnings
@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 class SimResult:
     """Container for simulation results."""
     aerial_image: Optional[np.ndarray] = None
+    resist_image: Optional[np.ndarray] = None
     mask_grid: Optional[np.ndarray] = None
     source_points: Optional[np.ndarray] = None
     cd_nm: float = 0.0
@@ -24,6 +25,8 @@ class SimResult:
     layout_path: str = ''
     status: str = 'pending'  # pending, running, complete, failed
     error_msg: str = ''
+    near_field_applied: bool = False
+    euv_mode: bool = False
 
 
 class SimulationPipeline:
@@ -74,6 +77,22 @@ class SimulationPipeline:
                 result.error_msg = 'Stopped by user'
                 return result
             mask_grid = self._step_load_layout(config, layout_path)
+
+            # Step 1b: Optional RCWA near-field correction
+            rcwa_cfg = config.get('rcwa', {})
+            if rcwa_cfg.get('enabled', False):
+                from core.rcwa import RCWAEngine, RCWAParams
+                domain_nm = config.get('simulation', {}).get('domain_size_nm', 2000.0)
+                wavelength_nm = config.get('lithography', config).get('wavelength_nm', 193.0)
+                rcwa_params = RCWAParams(
+                    wavelength_nm=wavelength_nm,
+                    n_orders=rcwa_cfg.get('n_orders', 11),
+                )
+                engine = RCWAEngine(rcwa_params)
+                nf = engine.apply_to_mask_grid(mask_grid, domain_nm)
+                mask_grid = np.real(nf)
+                result.near_field_applied = True
+
             result.mask_grid = mask_grid
             progress('Layout loaded', 20)
 
@@ -97,9 +116,19 @@ class SimulationPipeline:
             progress('Computing aerial image', 40)
             aerial_image = self._step_compute_aerial_image(config, mask_grid, source, on_progress)
             result.aerial_image = aerial_image
-            progress('Aerial image done', 80)
+            progress('Aerial image done', 75)
 
-            # Step 4: Analyze
+            # Step 4: Apply resist model
+            if is_stopped():
+                result.status = 'failed'
+                result.error_msg = 'Stopped by user'
+                return result
+            progress('Applying resist model', 78)
+            resist_image = self._step_apply_resist(config, aerial_image)
+            result.resist_image = resist_image
+            progress('Resist done', 80)
+
+            # Step 5: Analyze
             if is_stopped():
                 result.status = 'failed'
                 result.error_msg = 'Stopped by user'
@@ -182,6 +211,14 @@ class SimulationPipeline:
         # Convert binary grid to complex transmission
         mask_complex = mask_grid.astype(np.complex128)
         return engine.compute_aerial_image(mask_complex, source)
+
+    def _step_apply_resist(self, config: Dict, aerial_image: np.ndarray) -> np.ndarray:
+        """Apply resist model to aerial image, returning binary resist pattern."""
+        from core.resist_model import create_resist
+        resist = create_resist(config)
+        dose = config.get('resist', {}).get('dose', 1.0)
+        latent = resist.expose(aerial_image, dose)
+        return resist.develop(latent)
 
     def _step_analyze(self, config: Dict, aerial_image: np.ndarray) -> Dict:
         """Analyze aerial image for CD, NILS, contrast metrics."""
