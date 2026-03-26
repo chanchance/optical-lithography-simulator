@@ -241,8 +241,6 @@ class FourierOpticsEngine:
         x_1d = np.arange(N) * self.dx_nm
         y_1d = np.arange(N) * self.dx_nm
         X_np, Y_np = np.meshgrid(x_1d, y_1d, indexing='ij')
-        X_gpu = to_gpu(X_np)
-        Y_gpu = to_gpu(Y_np)
 
         for sp in source_points:
             # Source plane wave direction: (ks_x, ks_y) in cycles/nm

@@ -166,26 +166,29 @@ class SimulationPipeline:
         N = sim_cfg.get('grid_size', 256)
         domain_nm = sim_cfg.get('domain_size_nm', 2000.0)
 
+        mask_grid = None
         if layout_path and os.path.exists(layout_path):
             try:
                 from fileio.layout_io import read_layout, layout_to_mask_grid
                 layout = read_layout(layout_path)
                 mask_grid = layout_to_mask_grid(layout, N, domain_nm)
-                return mask_grid
             except Exception as e:
                 warnings.warn(
                     "Could not read layout '{}': {}. "
                     "Falling back to synthetic test pattern.".format(layout_path, e),
                     stacklevel=2)
 
-        # Default: line/space test pattern
-        from core.mask_model import MaskFactory
-        mask = MaskFactory.create_test_pattern(
-            'line_space', N, domain_nm, period_px=N // 4
-        )
-        mask_grid = np.abs(mask.transmission).astype(np.float64)
+        if mask_grid is None:
+            # Default: line/space test pattern
+            from core.mask_model import MaskFactory
+            mask = MaskFactory.create_test_pattern(
+                'line_space', N, domain_nm, period_px=N // 4
+            )
+            mask_grid = np.abs(mask.transmission).astype(np.float64)
 
-        # Apply EUV multilayer mask model when wavelength is 13.5nm
+        # Apply EUV multilayer mask model when wavelength is 13.5nm.
+        # Must run for both GDS-loaded and synthetic masks — was previously
+        # skipped for GDS layouts due to an early return.
         litho_cfg = config.get('lithography', {})
         if abs(float(litho_cfg.get('wavelength_nm', 193.0)) - 13.5) < 0.5:
             from core.euv_mask import EUVMultilayerMask, EUVFlare
