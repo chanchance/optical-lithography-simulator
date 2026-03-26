@@ -31,6 +31,7 @@ class ParameterPanel(QWidget):
     """Panel for setting lithography simulation parameters."""
 
     params_changed = Signal()
+    source_preview_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -222,6 +223,10 @@ class ParameterPanel(QWidget):
         ff_lbl.setObjectName("caption")
         ff_lbl.setWordWrap(True)
         ff_layout.addWidget(ff_lbl)
+        freeform_btn = QPushButton("Open Source Preview...")
+        freeform_btn.setObjectName("secondary")
+        freeform_btn.clicked.connect(self._request_source_preview)
+        ff_layout.addWidget(freeform_btn)
         self.illum_stack.addWidget(freeform_page)
 
         form.addRow(self.illum_stack)
@@ -431,6 +436,7 @@ class ParameterPanel(QWidget):
         resist_group.setFlat(False)
         resist_group.setCheckable(True)
         resist_group.setChecked(True)
+        self.resist_group = resist_group
         resist_outer = QVBoxLayout(resist_group)
         resist_outer.setContentsMargins(8, 12, 8, 8)
         resist_outer.setSpacing(6)
@@ -753,6 +759,8 @@ class ParameterPanel(QWidget):
         }
 
     def _get_resist_config(self) -> dict:
+        if self.resist_group.isCheckable() and not self.resist_group.isChecked():
+            return {'model': 'threshold', 'threshold': 1.0, 'dose': 1.0}
         idx = self.resist_combo.currentIndex()
         if idx == 1:  # Dill ABC
             return {
@@ -873,6 +881,9 @@ class ParameterPanel(QWidget):
     def _on_resist_model_changed(self, idx: int):
         self.resist_stack.setCurrentIndex(idx)
         self.params_changed.emit()
+
+    def _request_source_preview(self):
+        self.source_preview_requested.emit()
 
     def _open_stack_editor(self):
         from gui.dialogs.stack_dialog import StackDialog

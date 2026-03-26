@@ -300,6 +300,13 @@ class ResultsPanel(QWidget):
             ax.clear()
             _style_ax(ax, title, image_panel=is_img)
             ax.set_axis_off()
+        self._empty_state_text = self.figure.text(
+            0.5, 0.5,
+            "Run a simulation to see results\n\nSimulation → Run (Ctrl+R)",
+            ha='center', va='center',
+            fontsize=13, color=theme.TEXT_TERTIARY,
+            transform=self.figure.transFigure,
+        )
         self.canvas.draw()
 
     # ------------------------------------------------------------------

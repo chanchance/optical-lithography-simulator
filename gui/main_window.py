@@ -201,6 +201,7 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self._workflow_bar.set_current)
         self._workflow_bar.step_clicked.connect(self.tabs.setCurrentIndex)
         self.analysis_panel.navigate_requested.connect(self.tabs.setCurrentIndex)
+        self.param_panel.source_preview_requested.connect(self._show_source_dialog)
         self._results_stale = False
         self.param_panel.params_changed.connect(self._mark_stale)
 

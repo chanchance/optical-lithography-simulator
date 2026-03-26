@@ -11,6 +11,7 @@ from gui.qt_compat import (
     QFormLayout, QFont, Qt, QThread, Signal, QObject, QSizePolicy, QFrame,
 )
 from gui import theme
+from gui.plot_helpers import style_ax as _style_ax
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -286,36 +287,6 @@ class AnalysisPanel(QWidget):
         root.addWidget(splitter)
         self._init_plots()
 
-    # ── Theme helper ───────────────────────────────────────────────────
-
-    def _style_ax(self, ax, title, image_panel=False):
-        ax.set_facecolor(theme.BG_SECONDARY)
-        ax.set_title(title, fontsize=theme.MPL_TITLE, fontweight='600',
-                     color=theme.TEXT_PRIMARY, pad=6)
-        ax.tick_params(colors=theme.TEXT_TERTIARY, labelsize=theme.MPL_TICK)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_color(theme.BORDER)
-        ax.spines['bottom'].set_color(theme.BORDER)
-        if image_panel:
-            ax.grid(False)
-        else:
-            ax.grid(True, color=theme.MPL_GRID, linewidth=0.5, alpha=0.7, zorder=0)
-
-    def _init_plots(self):
-        for ax, title, is_img in [
-            (self.ax_bossung, "Bossung Curves",        False),
-            (self.ax_fem,     "Focus-Exposure Matrix", True),
-            (self.ax_pw,      "Process Window",        False),
-            (self.ax_metrics, "Key Metrics",           False),
-        ]:
-            ax.clear()
-            self._style_ax(ax, title, image_panel=is_img)
-            ax.text(0.5, 0.5, 'No data', ha='center', va='center',
-                    fontsize=theme.MPL_LABEL, color=theme.TEXT_TERTIARY,
-                    transform=ax.transAxes)
-            ax.set_axis_off()
-        self.canvas.draw()
 
     # ── Public API ─────────────────────────────────────────────────────
 
@@ -376,7 +347,7 @@ class AnalysisPanel(QWidget):
     def _plot_bossung(self, curves):
         ax = self.ax_bossung
         ax.clear()
-        self._style_ax(ax, "Bossung Curves")
+        _style_ax(ax, "Bossung Curves")
 
         colors = theme.BOSSUNG_COLORS
         for i, curve in enumerate(curves):
@@ -412,7 +383,7 @@ class AnalysisPanel(QWidget):
 
         ax = self.ax_pw
         ax.clear()
-        self._style_ax(ax, "Process Window")
+        _style_ax(ax, "Process Window")
 
         if not curves or len(curves) < 2:
             ax.text(0.5, 0.5, 'Insufficient data', ha='center', va='center',
@@ -518,7 +489,7 @@ class AnalysisPanel(QWidget):
     def _plot_fem(self, fem):
         ax = self.ax_fem
         ax.clear()
-        self._style_ax(ax, "Focus-Exposure Matrix", image_panel=True)
+        _style_ax(ax, "Focus-Exposure Matrix", image_panel=True)
 
         cd_target = self.cd_target_sb.value()
         cd_tol_pct = self.cd_tol_sb.value()
@@ -583,7 +554,7 @@ class AnalysisPanel(QWidget):
 
         ax = self.ax_pw
         ax.clear()
-        self._style_ax(ax, "Process Window")
+        _style_ax(ax, "Process Window")
 
         if dof > 0 and el_pct > 0:
             ellipse = Ellipse(
@@ -659,7 +630,7 @@ class AnalysisPanel(QWidget):
     def _draw_metrics_ax(self, rows):
         ax = self.ax_metrics
         ax.clear()
-        self._style_ax(ax, "Key Metrics")
+        _style_ax(ax, "Key Metrics")
         ax.set_axis_off()
 
         # Header label
