@@ -98,7 +98,8 @@ class SimulationPipeline:
 
             result.mask_grid = mask_grid
             litho_cfg = config.get('lithography', config)
-            result.euv_mode = float(litho_cfg.get('wavelength_nm', 193.0)) == 13.5
+            wl_check = float(litho_cfg.get('wavelength_nm', 193.0))
+            result.euv_mode = abs(wl_check - 13.5) < 0.5
             progress('Layout loaded', 20)
 
             # Step 2: Create illumination source
@@ -143,6 +144,7 @@ class SimulationPipeline:
             result.cd_nm = metrics.get('cd_nm', 0.0)
             result.nils = metrics.get('nils', 0.0)
             result.contrast = metrics.get('contrast', 0.0)
+            result.dof_nm = metrics.get('dof_nm', 0.0)
             result.metrics = metrics
             progress('Analysis done', 100)
 
@@ -184,7 +186,7 @@ class SimulationPipeline:
 
         # Apply EUV multilayer mask model when wavelength is 13.5nm
         litho_cfg = config.get('lithography', config)
-        if float(litho_cfg.get('wavelength_nm', 193.0)) == 13.5:
+        if abs(float(litho_cfg.get('wavelength_nm', 193.0)) - 13.5) < 0.5:
             from core.euv_mask import EUVMultilayerMask, EUVFlare
             euv_mask = EUVMultilayerMask()
             mask_grid = euv_mask.apply_to_mask(mask_grid)
@@ -259,6 +261,17 @@ class SimulationPipeline:
         analyzer = AerialImageAnalyzer(domain_nm, N)
         metrics_obj = analyzer.analyze(aerial_image, threshold)
 
+        # Simple NILS-based DOF estimate: DOF ≈ λ/(NA² * NILS) * k2
+        # where k2 ≈ 0.5 is a process factor
+        litho_cfg2 = config.get('lithography', config)
+        wl = float(litho_cfg2.get('wavelength_nm', 193.0))
+        na = float(litho_cfg2.get('NA', 0.93))
+        nils = metrics_obj.nils
+        if nils > 0.1 and na > 0:
+            dof_nm = 0.5 * wl / (na ** 2) * min(nils / 2.0, 2.0)
+        else:
+            dof_nm = 0.0
+
         return {
             'cd_nm': metrics_obj.cd_nm,
             'nils': metrics_obj.nils,
@@ -266,6 +279,7 @@ class SimulationPipeline:
             'i_max': metrics_obj.i_max,
             'i_min': metrics_obj.i_min,
             'threshold': threshold,
+            'dof_nm': dof_nm,
         }
 
     def run_from_args(self, args: List[str]) -> SimResult:
