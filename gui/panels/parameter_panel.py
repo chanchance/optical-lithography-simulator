@@ -7,7 +7,9 @@ from gui.qt_compat import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
     QDoubleSpinBox, QComboBox, QSlider, QPushButton, QFileDialog,
     QMessageBox, QScrollArea, QLabel, QSpinBox, Qt, Signal, QFont,
+    QCheckBox,
 )
+from core.aberrations import ZERNIKE_TABLE
 
 # ---------------------------------------------------------------------------
 # Preset definitions: (wavelength_nm, NA, sigma_outer, sigma_inner)
@@ -197,44 +199,64 @@ class ParameterPanel(QWidget):
 
         layout.addWidget(mask_group)
 
-        # ---- Aberrations (Zernike) ----
-        aber_group = QGroupBox("Aberrations (Zernike)")
+        # ---- Aberrations (Z1-Z37) — collapsible ----
+        aber_group = QGroupBox("Aberrations (Z1–Z37)")
+        aber_group.setCheckable(True)
+        aber_group.setChecked(False)
         aber_group.setFlat(False)
 
-        aber_form = QFormLayout(aber_group)
-        aber_form.setContentsMargins(8, 12, 8, 8)
+        aber_vbox = QVBoxLayout(aber_group)
+        aber_vbox.setContentsMargins(8, 4, 8, 8)
+        aber_vbox.setSpacing(0)
 
-        self.w020_sb = QDoubleSpinBox()
-        self.w020_sb.setRange(-1.0, 1.0)
-        self.w020_sb.setValue(0.0)
-        self.w020_sb.setDecimals(3)
-        self.w020_sb.setSingleStep(0.01)
-        self.w020_sb.setSuffix(" λ")
-        self.w020_sb.setToolTip("W020 — defocus aberration (waves)")
-        self.w020_sb.valueChanged.connect(self.params_changed)
-        aber_form.addRow("W020 (defocus):", self.w020_sb)
+        aber_content = QWidget()
+        aber_form = QFormLayout(aber_content)
+        aber_form.setContentsMargins(0, 4, 0, 0)
+        aber_form.setSpacing(2)
 
-        self.w040_sb = QDoubleSpinBox()
-        self.w040_sb.setRange(-1.0, 1.0)
-        self.w040_sb.setValue(0.0)
-        self.w040_sb.setDecimals(3)
-        self.w040_sb.setSingleStep(0.01)
-        self.w040_sb.setSuffix(" λ")
-        self.w040_sb.setToolTip("W040 — spherical aberration (waves)")
-        self.w040_sb.valueChanged.connect(self.params_changed)
-        aber_form.addRow("W040 (spherical):", self.w040_sb)
+        self.zernike_sbs = []
+        for idx, (n, m, name) in enumerate(ZERNIKE_TABLE, start=1):
+            sb = QDoubleSpinBox()
+            sb.setRange(-0.5, 0.5)
+            sb.setValue(0.0)
+            sb.setDecimals(3)
+            sb.setSingleStep(0.01)
+            sb.setSuffix(" \u03bb")
+            sb.setToolTip("Z{}: {} (n={}, m={})".format(idx, name, n, m))
+            sb.valueChanged.connect(self.params_changed)
+            aber_form.addRow("Z{} ({}):".format(idx, name), sb)
+            self.zernike_sbs.append(sb)
 
-        self.w131_sb = QDoubleSpinBox()
-        self.w131_sb.setRange(-1.0, 1.0)
-        self.w131_sb.setValue(0.0)
-        self.w131_sb.setDecimals(3)
-        self.w131_sb.setSingleStep(0.01)
-        self.w131_sb.setSuffix(" λ")
-        self.w131_sb.setToolTip("W131 — coma aberration (waves)")
-        self.w131_sb.valueChanged.connect(self.params_changed)
-        aber_form.addRow("W131 (coma):", self.w131_sb)
+        aber_vbox.addWidget(aber_content)
+        aber_content.setVisible(False)
+        aber_group.toggled.connect(aber_content.setVisible)
 
         layout.addWidget(aber_group)
+
+        # ---- RCWA Near-Field Correction ----
+        rcwa_group = QGroupBox("RCWA Near-Field Correction")
+        rcwa_group.setFlat(False)
+
+        rcwa_form = QFormLayout(rcwa_group)
+        rcwa_form.setContentsMargins(8, 12, 8, 8)
+
+        self.rcwa_enabled_cb = QCheckBox()
+        self.rcwa_enabled_cb.setChecked(False)
+        self.rcwa_enabled_cb.setToolTip(
+            "Apply RCWA near-field correction to mask after loading"
+        )
+        self.rcwa_enabled_cb.stateChanged.connect(self.params_changed)
+        rcwa_form.addRow("Enable RCWA:", self.rcwa_enabled_cb)
+
+        self.rcwa_n_orders_sb = QSpinBox()
+        self.rcwa_n_orders_sb.setRange(1, 51)
+        self.rcwa_n_orders_sb.setValue(11)
+        self.rcwa_n_orders_sb.setSingleStep(2)
+        self.rcwa_n_orders_sb.setToolTip("Number of diffraction orders (odd)")
+        self.rcwa_n_orders_sb.valueChanged.connect(self.params_changed)
+        rcwa_form.addRow("Diffraction orders:", self.rcwa_n_orders_sb)
+
+        layout.addWidget(rcwa_group)
 
         # ---- Load / Save buttons ----
         btn_row = QHBoxLayout()
@@ -333,14 +355,16 @@ class ParameterPanel(QWidget):
                 },
                 "mask_type": mask_map[self.mask_combo.currentText()],
                 "aberrations": {
-                    "W020": self.w020_sb.value(),
-                    "W040": self.w040_sb.value(),
-                    "W131": self.w131_sb.value(),
+                    "zernike": [sb.value() for sb in self.zernike_sbs],
                 },
             },
             "simulation": {
                 "grid_size": int(self.grid_combo.currentText()),
                 "domain_size_nm": self.domain_sb.value(),
+            },
+            "rcwa": {
+                "enabled": self.rcwa_enabled_cb.isChecked(),
+                "n_orders": self.rcwa_n_orders_sb.value(),
             },
         }
 
@@ -357,9 +381,9 @@ class ParameterPanel(QWidget):
             self.defocus_sb.setValue(litho.get("defocus_nm", 0.0))
             self.sigma_outer_sb.setValue(illum.get("sigma_outer", 0.85))
             self.sigma_inner_sb.setValue(illum.get("sigma_inner", 0.55))
-            self.w020_sb.setValue(aber.get("W020", 0.0))
-            self.w040_sb.setValue(aber.get("W040", 0.0))
-            self.w131_sb.setValue(aber.get("W131", 0.0))
+            zernike_coeffs = aber.get("zernike", [0.0] * 37)
+            for i, sb in enumerate(self.zernike_sbs):
+                sb.setValue(zernike_coeffs[i] if i < len(zernike_coeffs) else 0.0)
         finally:
             self._applying_preset = False
 
@@ -376,6 +400,10 @@ class ParameterPanel(QWidget):
         )
         self.grid_combo.setCurrentText(str(sim.get("grid_size", 256)))
         self.domain_sb.setValue(sim.get("domain_size_nm", 2000.0))
+
+        rcwa = config.get("rcwa", {})
+        self.rcwa_enabled_cb.setChecked(rcwa.get("enabled", False))
+        self.rcwa_n_orders_sb.setValue(rcwa.get("n_orders", 11))
 
         # Mark as custom after loading
         self.preset_combo.blockSignals(True)

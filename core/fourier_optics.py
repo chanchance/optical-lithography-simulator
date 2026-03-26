@@ -16,18 +16,11 @@ import numpy as np
 from typing import Optional, List, Tuple
 
 from .source_model import BaseSource, SourcePoint
+from .aberrations import ZernikeAberration
 
 
-class ZernikeAberrations:
-    """Zernike polynomial aberration model for projection optic."""
-
-    COEFF_NAMES = {
-        'W020': (2, 0),   # Defocus
-        'W040': (4, 0),   # Spherical
-        'W111': (1, 1),   # Tilt X
-        'W131': (3, 1),   # Coma
-        'W222': (2, 2),   # Astigmatism
-    }
+class _LegacyZernikeAberrations:
+    """Legacy 5-term Zernike model using W0xx coefficients (backward compat)."""
 
     def __init__(self, coefficients: Optional[dict] = None):
         self.coefficients = coefficients or {}
@@ -69,7 +62,22 @@ class ProjectionOptic:
         self.wavelength_nm = wavelength_nm
         self.wavelength = wavelength_nm * 1e-9
         self.magnification = magnification
-        self.zernike = ZernikeAberrations(aberrations)
+
+        self._legacy_aber: Optional[_LegacyZernikeAberrations] = None
+        self._zernike_aber: Optional[ZernikeAberration] = None
+
+        if aberrations:
+            if any(isinstance(k, str) for k in aberrations):
+                # Old W0xx string-key format — keep legacy path
+                self._legacy_aber = _LegacyZernikeAberrations(aberrations)
+            elif 'zernike' in aberrations:
+                # New format: {"zernike": [c1, c2, ..., c37]}
+                self._zernike_aber = ZernikeAberration.from_list(
+                    aberrations['zernike'])
+            else:
+                # Integer key format: {1: c1, 2: c2, ...}
+                self._zernike_aber = ZernikeAberration(
+                    {int(k): v for k, v in aberrations.items()})
 
     def pupil_function(self, fx: np.ndarray, fy: np.ndarray,
                        defocus_nm: float = 0.0) -> np.ndarray:
@@ -103,12 +111,20 @@ class ProjectionOptic:
             np.sqrt(1.0 - rho_NA**2) - 1.0
         )
 
-        # Full wavefront from Zernike model
-        W_zernike = self.zernike.compute_wavefront(rho, phi)
-        W_total = W_defocus + W_zernike
+        # Wavefront from aberration model
+        if self._legacy_aber is not None:
+            W_aber = self._legacy_aber.compute_wavefront(rho, phi)  # waves
+            phase = 2.0 * np.pi * (W_defocus + W_aber)
+        elif self._zernike_aber is not None:
+            kx_n = fx / (NA_freq + 1e-30)
+            ky_n = fy / (NA_freq + 1e-30)
+            phase_aber = self._zernike_aber.pupil_phase(kx_n, ky_n)  # radians
+            phase = 2.0 * np.pi * W_defocus + phase_aber
+        else:
+            phase = 2.0 * np.pi * W_defocus
 
-        # Pupil function: P = circ * exp(j * 2*pi * W)
-        P = circ_mask * np.exp(1j * 2.0 * np.pi * W_total)
+        # Pupil function: P = circ * exp(j * phase)
+        P = circ_mask * np.exp(1j * phase)
 
         return P
 
@@ -146,7 +162,7 @@ class FourierOpticsEngine:
         # Projection optic
         self.projection_optic = ProjectionOptic(
             self.NA, self.wavelength_nm,
-            aberrations=config.get('aberrations')
+            aberrations=config.get('aberrations'),
         )
 
     def _setup_frequency_grid(self):
