@@ -93,29 +93,6 @@ class ParameterIO:
             },
         }
 
-    def get_lithography_params(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Extract flat lithography parameter dict for simulation."""
-        litho = config.get('lithography', {})
-        illum = litho.get('illumination', {})
-        mask = litho.get('mask', {})
-        return {
-            'wavelength_nm': litho.get('wavelength_nm', 193.0),
-            'NA': litho.get('NA', 0.93),
-            'illumination_type': illum.get('type', 'circular'),
-            'sigma_outer': illum.get('sigma_outer', 0.85),
-            'sigma_inner': illum.get('sigma_inner', 0.55),
-            'sigma_c': illum.get('sigma_c', 0.15),
-            'sigma_r': illum.get('sigma_r', 0.30),
-            'theta_q': illum.get('theta_q', 45.0),
-            'N_source_points': illum.get('N_source_points', 4),
-            'polarization': illum.get('polarization', 'unpolarized'),
-            'defocus_nm': litho.get('defocus_nm', 0.0),
-            'mask_type': mask.get('type', 'binary'),
-            'threshold': config.get('resist', {}).get('threshold', 0.30),
-            'grid_size': config.get('simulation', {}).get('grid_size', 256),
-            'domain_size_nm': config.get('simulation', {}).get('domain_size_nm', 2000.0),
-        }
-
     def _validate(self, config: Dict[str, Any]) -> None:
         """Basic validation of config structure."""
         litho = config.get('lithography', {})
