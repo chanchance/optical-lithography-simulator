@@ -74,14 +74,21 @@ class ConfigValidator:
             errors.append(ValidationError('simulation.domain_size_nm',
                 'domain_size_nm must be > 0', 'error'))
         else:
-            litho = config.get('lithography', {})
-            na = litho.get('NA', 0.93)
-            wl = litho.get('wavelength_nm', 193.0)
-            if na > 0 and domain_nm < 5 * wl / na:
+            wl = config.get('lithography', {}).get('wavelength_nm', 193.0)
+            na = config.get('lithography', {}).get('NA', 0.93)
+            domain = sim.get('domain_size_nm', 2000.0)
+            min_domain = 4 * wl / na  # 4 resolution elements
+            if domain < min_domain:
                 errors.append(ValidationError('simulation.domain_size_nm',
-                    'domain_size_nm is very small relative to wavelength/NA '
-                    '(< 5 * wavelength/NA = {:.1f} nm)'.format(5 * wl / na),
-                    'warning'))
+                    f'Domain ({domain:.0f}nm) may be too small for λ={wl}nm/NA={na:.2f}; '
+                    f'recommend ≥ {min_domain:.0f}nm', 'warning'))
+
+            pixel_size = domain / grid_size
+            nyq = wl / (4 * na)
+            if pixel_size > nyq:
+                errors.append(ValidationError('simulation.grid_size',
+                    f'Pixel size {pixel_size:.1f}nm may undersample the PSF '
+                    f'(λ/(4·NA)={nyq:.1f}nm)', 'warning'))
 
         return errors
 
