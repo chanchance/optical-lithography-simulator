@@ -216,19 +216,29 @@ class QuasarSource(BaseSource):
                             self.sigma_r + self.sigma_c, n_radial)
         r_arr = r_arr[r_arr > 0]
 
-        all_points = []
+        # Store (kx, ky, r) — area element in polar coords is r·dr·dθ,
+        # so each sample's weight is proportional to its radial distance r.
+        # Equal-weight sampling would under-weight outer radial samples.
+        all_kx = []
+        all_ky = []
+        all_r = []
         for center_angle in pole_angles:
             for r in r_arr:
                 for dt in np.linspace(-self.theta_q, self.theta_q, n_angular):
                     angle = center_angle + dt
-                    kx = r * np.cos(angle)
-                    ky = r * np.sin(angle)
-                    all_points.append((kx, ky))
+                    all_kx.append(r * np.cos(angle))
+                    all_ky.append(r * np.sin(angle))
+                    all_r.append(r)
 
-        n_pts = max(1, len(all_points))
-        weight = 1.0 / n_pts
-        return [SourcePoint(float(p[0]), float(p[1]), weight, self.polarization)
-                for p in all_points]
+        if not all_kx:
+            return [SourcePoint(0.0, 0.0, 1.0, self.polarization)]
+
+        raw_weights = np.array(all_r)
+        total = raw_weights.sum()
+        weights = raw_weights / total if total > 0 else np.ones(len(all_r)) / len(all_r)
+        return [SourcePoint(float(all_kx[i]), float(all_ky[i]),
+                            float(weights[i]), self.polarization)
+                for i in range(len(all_kx))]
 
 
 class DipoleSource(BaseSource):

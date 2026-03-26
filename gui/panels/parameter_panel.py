@@ -546,20 +546,21 @@ class ParameterPanel(QWidget):
     def _on_spinbox_changed(self):
         """Any manual spinbox edit switches preset combo to 'Custom'.
         Also enforces sigma_inner < sigma_outer constraint."""
-        if not self._applying_preset:
-            self.preset_combo.blockSignals(True)
-            self.preset_combo.setCurrentText("Custom")
-            self.preset_combo.blockSignals(False)
-            # User is explicitly editing illumination params — drop any
-            # override from SourceDialog so the panel values take effect.
-            self._illum_override = None
-            # Enforce sigma_inner < sigma_outer for annular-type sources
-            if self.sigma_inner_sb.isEnabled():
-                if self.sigma_inner_sb.value() >= self.sigma_outer_sb.value():
-                    self.sigma_inner_sb.blockSignals(True)
-                    self.sigma_inner_sb.setValue(
-                        max(0.0, self.sigma_outer_sb.value() - 0.05))
-                    self.sigma_inner_sb.blockSignals(False)
+        if self._applying_preset:
+            return
+        self.preset_combo.blockSignals(True)
+        self.preset_combo.setCurrentText("Custom")
+        self.preset_combo.blockSignals(False)
+        # User is explicitly editing illumination params — drop any
+        # override from SourceDialog so the panel values take effect.
+        self._illum_override = None
+        # Enforce sigma_inner < sigma_outer for annular-type sources
+        if self.sigma_inner_sb.isEnabled():
+            if self.sigma_inner_sb.value() >= self.sigma_outer_sb.value():
+                self.sigma_inner_sb.blockSignals(True)
+                self.sigma_inner_sb.setValue(
+                    max(0.0, self.sigma_outer_sb.value() - 0.05))
+                self.sigma_inner_sb.blockSignals(False)
         self.params_changed.emit()
 
     # ------------------------------------------------------------------
@@ -746,6 +747,7 @@ class ParameterPanel(QWidget):
         self.preset_combo.blockSignals(True)
         self.preset_combo.setCurrentText("Custom")
         self.preset_combo.blockSignals(False)
+        self.params_changed.emit()
 
     # ------------------------------------------------------------------
     # Resist model
