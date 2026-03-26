@@ -1,22 +1,19 @@
 """
 Simulation control panel: mode selection, run/stop, progress bar, log.
 """
+from gui.qt_compat import (
+    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
+    QPushButton, QProgressBar, QLabel,
+    QFrame, QSizePolicy, Qt, Signal, QElapsedTimer,
+)
+from gui import theme
+
 try:
-    from PySide6.QtWidgets import (
-        QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-        QRadioButton, QPushButton, QProgressBar, QTextEdit, QLabel,
-        QButtonGroup, QFrame, QSizePolicy
-    )
-    from PySide6.QtCore import Qt, Signal, QElapsedTimer
+    from PySide6.QtWidgets import QRadioButton, QButtonGroup, QTextEdit
     from PySide6.QtGui import QTextCursor
 except ImportError:
-    from PyQt5.QtWidgets import (
-        QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-        QRadioButton, QPushButton, QProgressBar, QTextEdit, QLabel,
-        QButtonGroup, QFrame, QSizePolicy
-    )
-    from PyQt5.QtCore import Qt, pyqtSignal as Signal, QElapsedTimer
-    from PyQt5.QtGui import QTextCursor
+    from PyQt5.QtWidgets import QRadioButton, QButtonGroup, QTextEdit  # type: ignore
+    from PyQt5.QtGui import QTextCursor  # type: ignore
 
 
 _MODE_DESCRIPTIONS = {
@@ -48,9 +45,6 @@ class SimulationPanel(QWidget):
 
         radio_frame = QFrame()
         radio_frame.setFrameShape(QFrame.StyledPanel)
-        radio_frame.setStyleSheet(
-            "QFrame { background: #f0f4f8; border: 1px solid #d0d8e4; border-radius: 4px; }"
-        )
         radio_layout = QVBoxLayout(radio_frame)
         radio_layout.setSpacing(4)
         radio_layout.setContentsMargins(10, 8, 10, 8)
@@ -68,9 +62,7 @@ class SimulationPanel(QWidget):
 
         self.mode_desc_label = QLabel(_MODE_DESCRIPTIONS['fourier_optics'])
         self.mode_desc_label.setWordWrap(True)
-        self.mode_desc_label.setStyleSheet(
-            "color: #555555; font-size: 11px; padding: 2px 4px;"
-        )
+        self.mode_desc_label.setObjectName("caption")
         mode_outer.addWidget(self.mode_desc_label)
 
         self._mode_group.buttonClicked.connect(self._on_mode_changed)
@@ -83,39 +75,15 @@ class SimulationPanel(QWidget):
         self.run_btn = QPushButton("Run")
         self.run_btn.setMinimumHeight(36)
         self.run_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.run_btn.setStyleSheet("""
-            QPushButton {
-                background: #2d8a4e; color: white; font-weight: bold;
-                font-size: 14px; padding: 8px 24px; border-radius: 4px;
-                border: none;
-            }
-            QPushButton:hover { background: #3aad63; }
-            QPushButton:disabled { background: #aaaaaa; color: #dddddd; }
-        """)
+        self.run_btn.setObjectName("success")
 
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setMinimumHeight(36)
         self.stop_btn.setEnabled(False)
-        self.stop_btn.setStyleSheet("""
-            QPushButton {
-                background: #b03030; color: white; font-weight: bold;
-                font-size: 13px; padding: 8px 18px; border-radius: 4px;
-                border: none;
-            }
-            QPushButton:hover { background: #d44040; }
-            QPushButton:disabled { background: #aaaaaa; color: #dddddd; }
-        """)
+        self.stop_btn.setObjectName("danger")
 
         self.reset_btn = QPushButton("Reset")
         self.reset_btn.setMinimumHeight(36)
-        self.reset_btn.setStyleSheet("""
-            QPushButton {
-                background: #e0e0e0; color: #333333; font-size: 13px;
-                padding: 8px 18px; border-radius: 4px;
-                border: 1px solid #bbbbbb;
-            }
-            QPushButton:hover { background: #cccccc; }
-        """)
 
         self.run_btn.clicked.connect(self._on_run)
         self.stop_btn.clicked.connect(self._on_stop)
@@ -151,7 +119,7 @@ class SimulationPanel(QWidget):
         status_row.addWidget(self.status_label)
 
         self.eta_label = QLabel("")
-        self.eta_label.setStyleSheet("color: #555555; font-size: 11px;")
+        self.eta_label.setObjectName("caption")
         self.eta_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         status_row.addWidget(self.eta_label)
 
@@ -163,30 +131,20 @@ class SimulationPanel(QWidget):
         log_layout = QVBoxLayout(log_group)
         log_layout.setSpacing(4)
 
-        log_header = QHBoxLayout()
-        log_header.addStretch()
-        self.clear_log_btn = QPushButton("Clear")
-        self.clear_log_btn.setFixedHeight(22)
-        self.clear_log_btn.setStyleSheet("""
-            QPushButton {
-                background: #e8e8e8; border: 1px solid #bbbbbb;
-                border-radius: 3px; padding: 1px 8px; font-size: 11px;
-            }
-            QPushButton:hover { background: #d0d0d0; }
-        """)
-        self.clear_log_btn.clicked.connect(self.log_edit.clear if hasattr(self, 'log_edit') else lambda: None)
-        log_header.addWidget(self.clear_log_btn)
-        log_layout.addLayout(log_header)
-
         self.log_edit = QTextEdit()
         self.log_edit.setReadOnly(True)
         self.log_edit.setFontFamily("Monospace")
         self.log_edit.setMinimumHeight(140)
-        log_layout.addWidget(self.log_edit)
 
-        # Wire clear button now that log_edit exists
-        self.clear_log_btn.clicked.disconnect()
+        log_header = QHBoxLayout()
+        log_header.addStretch()
+        self.clear_log_btn = QPushButton("Clear")
+        self.clear_log_btn.setFixedHeight(22)
         self.clear_log_btn.clicked.connect(self.log_edit.clear)
+        log_header.addWidget(self.clear_log_btn)
+        log_layout.addLayout(log_header)
+
+        log_layout.addWidget(self.log_edit)
 
         layout.addWidget(log_group)
         layout.addStretch()
@@ -196,19 +154,15 @@ class SimulationPanel(QWidget):
     def _set_led(self, color):
         """Set LED indicator color: 'gray', 'yellow', 'green', 'red'."""
         colors = {
-            'gray':   ('#999999', '#cccccc'),
-            'yellow': ('#d4a017', '#f0c040'),
-            'green':  ('#1d7a36', '#2d8a4e'),
-            'red':    ('#8b1a1a', '#cc3333'),
+            'gray':   theme.TEXT_TERTIARY,
+            'yellow': theme.WARNING,
+            'green':  theme.SUCCESS,
+            'red':    theme.DANGER,
         }
-        border_color, bg_color = colors.get(color, colors['gray'])
-        self.led_label.setStyleSheet("""
-            QLabel {{
-                background-color: {bg};
-                border: 2px solid {border};
-                border-radius: 7px;
-            }}
-        """.format(bg=bg_color, border=border_color))
+        bg = colors.get(color, theme.TEXT_TERTIARY)
+        self.led_label.setStyleSheet(
+            "QLabel {{ background-color: {bg}; border-radius: 7px; }}".format(bg=bg)
+        )
 
     # ── Mode change ───────────────────────────────────────────────────────────
 

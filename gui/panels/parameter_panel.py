@@ -3,22 +3,11 @@ Parameter panel for optical lithography simulator.
 Controls: preset selector, wavelength, NA, illumination, sigma, defocus, mask type, grid size,
 and aberration (Zernike) parameters.
 """
-try:
-    from PySide6.QtWidgets import (
-        QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
-        QDoubleSpinBox, QComboBox, QSlider, QPushButton, QFileDialog,
-        QMessageBox, QScrollArea, QLabel, QSpinBox
-    )
-    from PySide6.QtCore import Qt, Signal
-    from PySide6.QtGui import QFont
-except ImportError:
-    from PyQt5.QtWidgets import (
-        QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
-        QDoubleSpinBox, QComboBox, QSlider, QPushButton, QFileDialog,
-        QMessageBox, QScrollArea, QLabel, QSpinBox
-    )
-    from PyQt5.QtCore import Qt, pyqtSignal as Signal
-    from PyQt5.QtGui import QFont
+from gui.qt_compat import (
+    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QGroupBox,
+    QDoubleSpinBox, QComboBox, QSlider, QPushButton, QFileDialog,
+    QMessageBox, QScrollArea, QLabel, QSpinBox, Qt, Signal, QFont,
+)
 
 # ---------------------------------------------------------------------------
 # Preset definitions: (wavelength_nm, NA, sigma_outer, sigma_inner)
@@ -30,9 +19,6 @@ _PRESETS = {
     "EUV (13.5nm, NA=0.33)":          (13.5,  0.33, 0.70, 0.40),
     "Custom":                          None,
 }
-
-_GROUP_STYLE = "QGroupBox { font-weight: bold; color: #1a3a5c; }"
-
 
 class ParameterPanel(QWidget):
     """Panel for setting lithography simulation parameters."""
@@ -66,7 +52,6 @@ class ParameterPanel(QWidget):
         # ---- Preset selector ----
         preset_group = QGroupBox("Quick Presets")
         preset_group.setFlat(False)
-        preset_group.setStyleSheet(_GROUP_STYLE)
         preset_layout = QFormLayout(preset_group)
         preset_layout.setContentsMargins(8, 12, 8, 8)
 
@@ -82,7 +67,6 @@ class ParameterPanel(QWidget):
         # ---- Lithography parameters ----
         litho_group = QGroupBox("Lithography Parameters")
         litho_group.setFlat(False)
-        litho_group.setStyleSheet(_GROUP_STYLE)
         form = QFormLayout(litho_group)
         form.setContentsMargins(8, 12, 8, 8)
 
@@ -140,7 +124,7 @@ class ParameterPanel(QWidget):
         # ---- Defocus ----
         defocus_group = QGroupBox("Defocus")
         defocus_group.setFlat(False)
-        defocus_group.setStyleSheet(_GROUP_STYLE)
+
         df_outer = QVBoxLayout(defocus_group)
         df_outer.setContentsMargins(8, 12, 8, 8)
 
@@ -171,8 +155,8 @@ class ParameterPanel(QWidget):
         minmax_row = QHBoxLayout()
         lbl_min = QLabel("-500 nm")
         lbl_max = QLabel("+500 nm")
-        lbl_min.setStyleSheet("color: #666; font-size: 10px;")
-        lbl_max.setStyleSheet("color: #666; font-size: 10px;")
+        lbl_min.setObjectName("caption")
+        lbl_max.setObjectName("caption")
         minmax_row.addWidget(lbl_min)
         minmax_row.addStretch()
         minmax_row.addWidget(lbl_max)
@@ -183,7 +167,7 @@ class ParameterPanel(QWidget):
         # ---- Mask & Grid ----
         mask_group = QGroupBox("Mask & Grid")
         mask_group.setFlat(False)
-        mask_group.setStyleSheet(_GROUP_STYLE)
+
         mask_form = QFormLayout(mask_group)
         mask_form.setContentsMargins(8, 12, 8, 8)
 
@@ -216,7 +200,7 @@ class ParameterPanel(QWidget):
         # ---- Aberrations (Zernike) ----
         aber_group = QGroupBox("Aberrations (Zernike)")
         aber_group.setFlat(False)
-        aber_group.setStyleSheet(_GROUP_STYLE)
+
         aber_form = QFormLayout(aber_group)
         aber_form.setContentsMargins(8, 12, 8, 8)
 
@@ -256,6 +240,8 @@ class ParameterPanel(QWidget):
         btn_row = QHBoxLayout()
         self.load_btn = QPushButton("Load YAML")
         self.save_btn = QPushButton("Save YAML")
+        self.load_btn.setObjectName("secondary")
+        self.save_btn.setObjectName("secondary")
         self.load_btn.clicked.connect(self._load_config)
         self.save_btn.clicked.connect(self._save_config)
         btn_row.addWidget(self.load_btn)

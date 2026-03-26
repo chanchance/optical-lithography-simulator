@@ -5,22 +5,13 @@ import os
 import sys
 import numpy as np
 
-try:
-    from PySide6.QtWidgets import (
-        QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-        QListWidget, QListWidgetItem, QPushButton,
-        QLabel, QFileDialog, QMessageBox, QProgressBar, QFrame
-    )
-    from PySide6.QtCore import Qt, Signal, QThread
-    from PySide6.QtGui import QPalette, QColor
-except ImportError:
-    from PyQt5.QtWidgets import (
-        QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-        QListWidget, QListWidgetItem, QPushButton,
-        QLabel, QFileDialog, QMessageBox, QProgressBar, QFrame
-    )
-    from PyQt5.QtCore import Qt, pyqtSignal as Signal, QThread
-    from PyQt5.QtGui import QPalette, QColor
+from gui.qt_compat import (
+    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
+    QListWidget, QListWidgetItem, QPushButton,
+    QLabel, QFileDialog, QMessageBox, QProgressBar, QFrame,
+    Qt, Signal, QThread, QPalette, QColor, QFont,
+)
+from gui import theme
 
 import matplotlib
 matplotlib.use('Agg')
@@ -62,13 +53,15 @@ class LoadingOverlay(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents, False)
-        self.setStyleSheet("background-color: rgba(0, 0, 0, 150);")
+        self.setStyleSheet(
+            "background-color: rgba(25, 31, 40, 180);"
+        )
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
 
         self._label = QLabel("Loading...")
-        self._label.setStyleSheet("color: white; font-size: 13px;")
+        self._label.setStyleSheet("color: white; font-size: 13px; background: transparent;")
         self._label.setAlignment(Qt.AlignCenter)
 
         self._bar = QProgressBar()
@@ -76,9 +69,11 @@ class LoadingOverlay(QWidget):
         self._bar.setValue(0)
         self._bar.setFixedWidth(300)
         self._bar.setStyleSheet(
-            "QProgressBar { border: 1px solid #555; border-radius: 4px; "
-            "background: #222; color: white; text-align: center; }"
-            "QProgressBar::chunk { background: #4e79a7; border-radius: 3px; }"
+            "QProgressBar {{ border: 1px solid {border}; border-radius: 4px; "
+            "background: #222; color: white; text-align: center; }}"
+            "QProgressBar::chunk {{ background: {accent}; border-radius: 3px; }}".format(
+                border=theme.BORDER, accent=theme.ACCENT
+            )
         )
 
         layout.addWidget(self._label)
@@ -122,6 +117,7 @@ class LayoutPanel(QWidget):
         self.open_btn = QPushButton("Open GDS/OAS")
         self.fit_btn = QPushButton("Fit View")
         self.coord_label = QLabel("x: --   y: --")
+        self.coord_label.setFont(QFont("Courier", 11))
         self.open_btn.clicked.connect(self._open_file)
         self.fit_btn.clicked.connect(self._draw)
         tb.addWidget(self.open_btn)
@@ -150,7 +146,7 @@ class LayoutPanel(QWidget):
         canvas_layout = QVBoxLayout(self._canvas_container)
         canvas_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.figure = Figure(figsize=(6, 6), dpi=100)
+        self.figure = Figure(figsize=(6, 6), dpi=theme.MPL_DPI)
         self.ax = self.figure.add_subplot(111)
         self.ax.set_aspect('equal')
         self.ax.set_title("No layout loaded")

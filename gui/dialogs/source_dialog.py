@@ -4,20 +4,16 @@ Source dialog: interactive k-space illumination pupil preview.
 import math
 import numpy as np
 
+from gui.qt_compat import (
+    QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
+    QDoubleSpinBox, QComboBox, QSplitter, QLabel, QGroupBox, Qt,
+)
+from gui import theme
+
 try:
-    from PySide6.QtWidgets import (
-        QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-        QDoubleSpinBox, QComboBox, QDialogButtonBox,
-        QSplitter, QWidget, QLabel, QGroupBox
-    )
-    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QDialog, QDialogButtonBox
 except ImportError:
-    from PyQt5.QtWidgets import (
-        QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-        QDoubleSpinBox, QComboBox, QDialogButtonBox,
-        QSplitter, QWidget, QLabel, QGroupBox
-    )
-    from PyQt5.QtCore import Qt
+    from PyQt5.QtWidgets import QDialog, QDialogButtonBox  # type: ignore
 
 import matplotlib
 matplotlib.use('Agg')
@@ -86,7 +82,7 @@ class SourceDialog(QDialog):
         info_layout = QVBoxLayout(info_group)
         info_layout.setContentsMargins(10, 14, 10, 10)
         self.point_count_label = QLabel("N=0 source points")
-        self.point_count_label.setStyleSheet("color: #333333; font-size: 12px;")
+        self.point_count_label.setObjectName("caption")
         info_layout.addWidget(self.point_count_label)
         left_layout.addWidget(info_group)
 
@@ -107,7 +103,7 @@ class SourceDialog(QDialog):
                 swatch.setStyleSheet(
                     "border-top: 2px dashed {}; background: transparent;".format(color))
             lbl = QLabel(label)
-            lbl.setStyleSheet("font-size: 11px; color: #444444;")
+            lbl.setObjectName("caption")
             row.addWidget(swatch)
             row.addWidget(lbl)
             row.addStretch()
@@ -247,16 +243,20 @@ class SourceDialog(QDialog):
         fill_color = fill_colors.get(itype, '#4e79a7')
 
         # ── Pupil plot ────────────────────────────────────────────────────────
+        self.figure.patch.set_facecolor(theme.BG_PRIMARY)
+
         ax = self.ax
         ax.clear()
         ax.set_aspect('equal')
         ax.set_xlim(-1.2, 1.2)
         ax.set_ylim(-1.2, 1.2)
-        ax.set_xlabel("kx / NA", fontsize=9)
-        ax.set_ylabel("ky / NA", fontsize=9)
-        ax.set_title("Illumination Pupil (k-space)", fontsize=10, fontweight='bold')
-        ax.set_facecolor('#f4f6f9')
-        ax.tick_params(labelsize=8)
+        ax.set_xlabel("kx / NA", fontsize=theme.MPL_LABEL)
+        ax.set_ylabel("ky / NA", fontsize=theme.MPL_LABEL)
+        ax.set_title("Illumination Pupil (k-space)", fontsize=theme.MPL_TITLE, fontweight='bold')
+        ax.set_facecolor(theme.BG_SECONDARY)
+        ax.tick_params(labelsize=theme.MPL_TICK)
+        for spine in ax.spines.values():
+            spine.set_edgecolor(theme.BORDER)
 
         # Reference grid
         self._draw_sigma_grid(ax)
@@ -305,10 +305,12 @@ class SourceDialog(QDialog):
         ax_s.set_aspect('equal')
         ax_s.set_xlim(-1.2, 1.2)
         ax_s.set_ylim(-1.2, 1.2)
-        ax_s.set_xlabel("kx / NA", fontsize=9)
-        ax_s.set_ylabel("ky / NA", fontsize=9)
-        ax_s.set_facecolor('#f4f6f9')
-        ax_s.tick_params(labelsize=8)
+        ax_s.set_xlabel("kx / NA", fontsize=theme.MPL_LABEL)
+        ax_s.set_ylabel("ky / NA", fontsize=theme.MPL_LABEL)
+        ax_s.set_facecolor(theme.BG_SECONDARY)
+        ax_s.tick_params(labelsize=theme.MPL_TICK)
+        for spine in ax_s.spines.values():
+            spine.set_edgecolor(theme.BORDER)
 
         kx_arr, ky_arr = self._sample_source_points(itype, s_o, s_i)
         n_pts = len(kx_arr)
@@ -325,7 +327,7 @@ class SourceDialog(QDialog):
         ))
         ax_s.set_title(
             "Discrete Source Points  (N={})".format(n_pts),
-            fontsize=10, fontweight='bold'
+            fontsize=theme.MPL_TITLE, fontweight='bold'
         )
 
         self.point_count_label.setText("N={} source points".format(n_pts))
