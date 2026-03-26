@@ -315,12 +315,15 @@ class ResultsPanel(QWidget):
         xl, yl, ext = self._pixel_extent(result, result.aerial_image.shape)
         self._extent = ext
 
+        ai = result.aerial_image
+        vmax = max(1.0, float(ai.max()))   # dose_factor > 1 can push values above 1
         im = ax.imshow(
-            result.aerial_image, cmap='inferno', origin='lower',
-            vmin=0, vmax=1, extent=ext, aspect='auto'
+            ai, cmap='inferno', origin='lower',
+            vmin=0, vmax=vmax, extent=ext, aspect='auto'
         )
         self._cb_aerial = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-        self._cb_aerial.set_label("Normalized Intensity", fontsize=theme.MPL_ANNOT)
+        cb_label = "Intensity" if vmax > 1.0 else "Normalized Intensity"
+        self._cb_aerial.set_label(cb_label, fontsize=theme.MPL_ANNOT)
         self._cb_aerial.ax.tick_params(labelsize=theme.MPL_ANNOT)
         ax.set_xlabel(xl, fontsize=theme.MPL_LABEL)
         ax.set_ylabel(yl, fontsize=theme.MPL_LABEL)
