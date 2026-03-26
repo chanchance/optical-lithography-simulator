@@ -249,8 +249,9 @@ class FourierOpticsEngine:
 
             # Shift mask spectrum for oblique illumination
             # M_shifted(fx,fy) = M(fx+ks_x, fy+ks_y)
-            # Implement as phase ramp in spatial domain (shift theorem)
-            phase_ramp = np.exp(1j * 2.0 * np.pi * (ks_x * X_np + ks_y * Y_np))
+            # Shift theorem: FFT{m(x,y) * exp(-j2π(ksx*x+ksy*y))} = M(fx+ksx, fy+ksy)
+            # Note: sign is negative (not positive) — positive sign gives M(fx-ksx, fy-ksy)
+            phase_ramp = np.exp(-1j * 2.0 * np.pi * (ks_x * X_np + ks_y * Y_np))
             phase_gpu = to_gpu(phase_ramp)
             M_shifted = _fft2(mask_gpu * phase_gpu)
 

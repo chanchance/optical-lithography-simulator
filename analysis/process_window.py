@@ -72,8 +72,13 @@ class ProcessWindow:
         # Maximum EL
         el_max = float(np.max(el_per_focus))
 
-        # Process window area (EL * DOF)
-        pw_area = el_max * dof
+        # Process window area = integral of EL over focus range
+        # (area under the EL-vs-focus curve, not the bounding box el_max * dof)
+        if len(focus_axis_nm) >= 2:
+            focus_step = float(focus_axis_nm[1] - focus_axis_nm[0])
+        else:
+            focus_step = 0.0
+        pw_area = float(np.sum(el_per_focus) * focus_step)
 
         # Nominal dose: center of passing dose range at best focus
         best_j = np.argmax(el_per_focus) if np.any(el_per_focus > 0) else len(focus_axis_nm) // 2

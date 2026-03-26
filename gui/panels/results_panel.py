@@ -408,7 +408,9 @@ class ResultsPanel(QWidget):
                         fontsize=theme.MPL_ANNOT, color=color, ha='center',
                     )
 
-            ax.set_ylim(0, 1)
+            all_profiles = [g['profile'] for g in self._gauges]
+            y_max = max(1.0, float(max(p.max() for p in all_profiles)))
+            ax.set_ylim(0, y_max * 1.05)
             ax.set_xlabel("Distance along gauge (nm)", fontsize=theme.MPL_LABEL)
             ax.set_ylabel("Intensity", fontsize=theme.MPL_LABEL)
             ax.tick_params(labelsize=theme.MPL_TICK)
@@ -467,7 +469,7 @@ class ResultsPanel(QWidget):
                     transform=ax.transAxes, fontsize=theme.MPL_TICK, va='top',
                     bbox=dict(boxstyle='round,pad=0.3', fc='white',
                               ec=theme.BORDER, alpha=0.8))
-            ax.set_ylim(0, 1)
+            ax.set_ylim(0, max(1.0, float(profile.max())) * 1.05)
             ax.set_xlabel(x_label, fontsize=theme.MPL_LABEL)
             ax.set_ylabel("Intensity", fontsize=theme.MPL_LABEL)
             ax.tick_params(labelsize=theme.MPL_TICK)
