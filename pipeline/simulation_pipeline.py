@@ -122,6 +122,15 @@ class SimulationPipeline:
                 return result
             progress('Computing aerial image', 40)
             aerial_image = self._step_compute_aerial_image(config, mask_grid, source, on_progress)
+            # Apply EUV flare to the aerial image (not to the mask).
+            # Flare is long-range scattered light in the optical path; it adds
+            # a uniform background to intensity, so it must be applied here,
+            # after aerial image formation, not to the mask transmission.
+            euv_cfg = config.get('euv', {})
+            flare_frac = euv_cfg.get('flare', None)
+            if flare_frac is not None and result.euv_mode:
+                from core.euv_mask import EUVFlare
+                aerial_image = EUVFlare(flare_fraction=flare_frac).apply(aerial_image)
             result.aerial_image = aerial_image
             progress('Aerial image done', 75)
 
@@ -191,14 +200,12 @@ class SimulationPipeline:
         # skipped for GDS layouts due to an early return.
         litho_cfg = config.get('lithography', {})
         if abs(float(litho_cfg.get('wavelength_nm', 193.0)) - 13.5) < 0.5:
-            from core.euv_mask import EUVMultilayerMask, EUVFlare
+            from core.euv_mask import EUVMultilayerMask
             euv_mask = EUVMultilayerMask()
             mask_grid = euv_mask.apply_to_mask(mask_grid)
-            euv_cfg = config.get('euv', {})
-            flare_frac = euv_cfg.get('flare', None)
-            if flare_frac is not None:
-                flare = EUVFlare(flare_fraction=flare_frac)
-                mask_grid = flare.apply(mask_grid)
+            # Note: EUV flare is NOT applied here. Flare is scattered light in
+            # the optical path, so it must be added to the aerial image after
+            # simulation (in run()), not to the mask transmission beforehand.
 
         return mask_grid
 
