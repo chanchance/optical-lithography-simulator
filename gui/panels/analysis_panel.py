@@ -568,7 +568,7 @@ class AnalysisPanel(QWidget):
             dof = 0.0
             best_focus = 0.0
 
-        el_pct = fem.exposure_latitude(best_focus)
+        el_pct = fem.exposure_latitude(best_focus, cd_tol_pct)
 
         ax = self.ax_pw
         ax.clear()

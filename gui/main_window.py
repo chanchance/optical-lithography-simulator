@@ -308,7 +308,7 @@ class MainWindow(QMainWindow):
             try:
                 import core.vector_imaging  # availability check  # noqa: F401
                 pol_map = {
-                    "X-linear": "x_linear", "Y-linear": "y_linear",
+                    "X-linear": "x", "Y-linear": "y",
                     "TE": "te", "TM": "tm",
                     "Circular-L": "circular_l", "Circular-R": "circular_r",
                 }

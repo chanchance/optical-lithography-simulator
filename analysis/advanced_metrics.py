@@ -222,7 +222,8 @@ class FocusExposureMatrix:
         tol = cd_target_nm * cd_tolerance_pct / 100.0
         return np.abs(self.cd_matrix - cd_target_nm) <= tol
 
-    def exposure_latitude(self, focus_nm: float = 0.0) -> float:
+    def exposure_latitude(self, focus_nm: float = 0.0,
+                          cd_tol_pct: float = 10.0) -> float:
         """EL at given focus: % dose range keeping CD in spec."""
         fi = np.argmin(np.abs(self.focus_values - focus_nm))
         cd_row = self.cd_matrix[fi]
@@ -230,7 +231,7 @@ class FocusExposureMatrix:
         # so asymmetric dose ranges are handled correctly.
         ni = int(np.argmin(np.abs(self.dose_values - 1.0)))
         cd_ref = float(cd_row[ni])
-        tol = cd_ref * 0.10
+        tol = cd_ref * cd_tol_pct / 100.0
         in_window = np.abs(cd_row - cd_ref) <= tol
         if np.sum(in_window) < 2:
             return 0.0
