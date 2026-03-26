@@ -11,6 +11,7 @@ from gui.qt_compat import (
     QLabel, QFont, QFrame, Qt, QCheckBox, QComboBox,
 )
 from gui import theme
+from gui.gauge_manager import GaugeManager, GAUGE_COLORS as _GAUGE_COLORS
 
 import matplotlib
 # Do NOT call matplotlib.use('Agg') — it conflicts with the Qt backend
@@ -21,22 +22,13 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 import matplotlib.ticker as ticker
 
-# Bright gauge colours that stand out on inferno colormap
-_GAUGE_COLORS = ['#00ff88', '#ff6b35', '#4ecdc4', '#ffe66d',
-                 '#e040fb', '#80cbc4', '#f48fb1', '#fff176']
-
-
 class ResultsPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._result = None
         self._pw_history: list = []
         self._pw_nominal_cd: float = 0.0   # CD from first run (reference for band)
-        # --- Gauge state ---
-        self._gauges: list = []
-        self._gauge_mode: bool = False
-        self._pending_p1 = None
-        self._extent = None
+        self._gauge_mgr = GaugeManager()
         self._cb_aerial = None
         self._cb_wf = None
         self._show_resist_edge: bool = True
@@ -108,6 +100,13 @@ class ResultsPanel(QWidget):
             "Enter gauge mode: click two points on the aerial image\n"
             "to define a cross-section analysis line.")
 
+        self.lock_h_chk = QCheckBox("Lock H")
+        self.lock_h_chk.setToolTip(
+            "Constrain gauge to horizontal direction\n(both points share the same Y).")
+        self.lock_v_chk = QCheckBox("Lock V")
+        self.lock_v_chk.setToolTip(
+            "Constrain gauge to vertical direction\n(both points share the same X).")
+
         self.show_resist_chk = QCheckBox("Show Resist Edge")
         self.show_resist_chk.setChecked(True)
         self.show_resist_chk.setToolTip(
@@ -118,6 +117,8 @@ class ResultsPanel(QWidget):
         self.copy_table_btn.clicked.connect(self._copy_table_to_clipboard)
         self.add_gauge_btn.clicked.connect(self._toggle_gauge_mode)
         self.clear_gauges_btn.clicked.connect(self._clear_gauges)
+        self.lock_h_chk.toggled.connect(self._on_lock_h_toggled)
+        self.lock_v_chk.toggled.connect(self._on_lock_v_toggled)
         self.show_resist_chk.toggled.connect(self._on_resist_edge_toggled)
 
         pol_lbl = QLabel("Polarization:")
@@ -131,6 +132,7 @@ class ResultsPanel(QWidget):
 
         for w in (self.export_png_btn, self.export_pdf_btn, self.copy_table_btn,
                   self.add_gauge_btn, self.clear_gauges_btn,
+                  self.lock_h_chk, self.lock_v_chk,
                   self.show_resist_chk, self.gauge_status,
                   pol_lbl, self.polarization_combo):
             btn_col.addWidget(w)
@@ -163,21 +165,18 @@ class ResultsPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _toggle_gauge_mode(self, checked):
-        self._gauge_mode = checked
+        self._gauge_mgr.toggle_mode(checked)
         if checked:
-            self._pending_p1 = None
-            self.gauge_status.setText("Click point 1 on aerial image")
             self.canvas.setCursor(Qt.CrossCursor)
         else:
-            self._pending_p1 = None
-            self.gauge_status.setText("")
             self.canvas.unsetCursor()
             if self._result is not None:
                 self._redraw_aerial()
                 self.canvas.draw()
+        self.gauge_status.setText(self._gauge_mgr.status_message())
 
     def _on_canvas_click(self, event):
-        if not self._gauge_mode:
+        if not self._gauge_mgr.is_active():
             return
         if event.inaxes is not self.ax_aerial:
             return
@@ -185,80 +184,45 @@ class ResultsPanel(QWidget):
             return
 
         x, y = event.xdata, event.ydata
+        gauge = self._gauge_mgr.on_click(x, y)
+        self.gauge_status.setText(self._gauge_mgr.status_message())
 
-        if self._pending_p1 is None:
-            self._pending_p1 = (x, y)
-            self.gauge_status.setText("Click point 2 on aerial image")
+        if gauge is None:
+            # First click — redraw with pending marker
             self.ax_aerial.plot(x, y, 'o', color='white', markersize=7,
                                 markeredgecolor='black', markeredgewidth=1.2, zorder=12)
             self.canvas.draw_idle()
         else:
-            p1 = self._pending_p1
-            p2 = (x, y)
-            self._pending_p1 = None
-
-            profile, distances = self._extract_gauge_profile(
-                self._result.aerial_image, p1, p2, self._extent)
-
-            gauge = {
-                'p1': p1, 'p2': p2,
-                'profile': profile,
-                'distances': distances,
-                'color': _GAUGE_COLORS[len(self._gauges) % len(_GAUGE_COLORS)],
-                'idx': len(self._gauges) + 1,
-            }
-            self._gauges.append(gauge)
-
-            self.gauge_status.setText(
-                "{} gauge(s). Click point 1 for next gauge.".format(len(self._gauges)))
-
+            # Second click — extract profile and update plots
+            profile, distances = self._gauge_mgr.extract_profile(
+                self._result.aerial_image, gauge['p1'], gauge['p2'])
+            gauge['profile'] = profile
+            gauge['distances'] = distances
             self._redraw_aerial()
             self._draw_cross_section()
             self.canvas.draw()
 
-    def _extract_gauge_profile(self, image, p1, p2, extent, n_points=256):
-        """Extract intensity profile along line from p1->p2 (data/nm coords)."""
-        from scipy.ndimage import map_coordinates
-
-        if extent is None:
-            extent = [0, image.shape[1], 0, image.shape[0]]
-
-        x0_d, x1_d = extent[0], extent[1]
-        y0_d, y1_d = extent[2], extent[3]
-        n_rows, n_cols = image.shape
-
-        def to_pixel(xd, yd):
-            col = (xd - x0_d) / (x1_d - x0_d) * n_cols
-            row = (yd - y0_d) / (y1_d - y0_d) * n_rows
-            return row, col
-
-        r1, c1 = to_pixel(p1[0], p1[1])
-        r2, c2 = to_pixel(p2[0], p2[1])
-
-        rows_i = np.clip(np.linspace(r1, r2, n_points), 0, n_rows - 1)
-        cols_i = np.clip(np.linspace(c1, c2, n_points), 0, n_cols - 1)
-
-        profile = map_coordinates(image, [rows_i, cols_i], order=1, mode='nearest')
-
-        dx = p2[0] - p1[0]
-        dy = p2[1] - p1[1]
-        total_dist = np.sqrt(dx**2 + dy**2)
-        distances = np.linspace(0.0, total_dist, n_points)
-
-        return profile, distances
-
     def _clear_gauges(self):
-        self._gauges.clear()
-        self._pending_p1 = None
-        self.gauge_status.setText("")
-        if self._gauge_mode:
+        if self._gauge_mgr.is_active():
             self.add_gauge_btn.setChecked(False)
-            self._gauge_mode = False
+            self._gauge_mgr.toggle_mode(False)
             self.canvas.unsetCursor()
+        self._gauge_mgr.clear()
+        self.gauge_status.setText("")
         if self._result is not None:
             self._redraw_aerial()
             self._draw_cross_section()
             self.canvas.draw()
+
+    def _on_lock_h_toggled(self, checked):
+        self._gauge_mgr.lock_y = checked
+        if checked:
+            self.lock_v_chk.setChecked(False)
+
+    def _on_lock_v_toggled(self, checked):
+        self._gauge_mgr.lock_x = checked
+        if checked:
+            self.lock_h_chk.setChecked(False)
 
     # ------------------------------------------------------------------
     # Plot helpers
@@ -313,7 +277,7 @@ class ResultsPanel(QWidget):
             return
 
         xl, yl, ext = self._pixel_extent(result, result.aerial_image.shape)
-        self._extent = ext
+        self._gauge_mgr.set_extent(ext)
 
         ai = result.aerial_image
         vmax = max(1.0, float(ai.max()))   # dose_factor > 1 can push values above 1
@@ -329,7 +293,7 @@ class ResultsPanel(QWidget):
         ax.set_ylabel(yl, fontsize=theme.MPL_LABEL)
         ax.tick_params(labelsize=theme.MPL_TICK)
 
-        for g in self._gauges:
+        for g in self._gauge_mgr.get_gauges():
             p1, p2 = g['p1'], g['p2']
             color  = g['color']
             idx    = g['idx']
@@ -353,8 +317,9 @@ class ResultsPanel(QWidget):
                     bbox=dict(boxstyle='round,pad=0.15', fc='black',
                               ec='none', alpha=0.55))
 
-        if self._pending_p1 is not None:
-            ax.plot(*self._pending_p1, 'o', color='white',
+        pending = self._gauge_mgr.get_pending()
+        if pending is not None:
+            ax.plot(*pending, 'o', color='white',
                     markersize=7, markeredgecolor='black',
                     markeredgewidth=1.2, zorder=11)
 
@@ -371,13 +336,14 @@ class ResultsPanel(QWidget):
 
         threshold = result.metrics.get('threshold', 0.3)
 
-        if self._gauges:
+        gauges = self._gauge_mgr.get_gauges()
+        if gauges:
             ax.set_title("Cross-section (gauges)", fontsize=theme.MPL_TITLE,
                          fontweight='600', color=theme.TEXT_PRIMARY, pad=6)
             ax.axhline(threshold, color='red', linestyle='--', linewidth=0.9,
                        label='Threshold {:.2f}'.format(threshold), zorder=2)
 
-            for g in self._gauges:
+            for g in gauges:
                 distances = g['distances']
                 profile   = g['profile']
                 color     = g['color']
@@ -408,7 +374,7 @@ class ResultsPanel(QWidget):
                         fontsize=theme.MPL_ANNOT, color=color, ha='center',
                     )
 
-            all_profiles = [g['profile'] for g in self._gauges]
+            all_profiles = [g['profile'] for g in gauges]
             y_max = max(1.0, float(max(p.max() for p in all_profiles)))
             ax.set_ylim(0, y_max * 1.05)
             ax.set_xlabel("Distance along gauge (nm)", fontsize=theme.MPL_LABEL)
@@ -590,12 +556,11 @@ class ResultsPanel(QWidget):
     def show_result(self, result):
         self._result = result
 
-        self._gauges.clear()
-        self._pending_p1 = None
-        if self._gauge_mode:
+        if self._gauge_mgr.is_active():
             self.add_gauge_btn.setChecked(False)
-            self._gauge_mode = False
+            self._gauge_mgr.toggle_mode(False)
             self.canvas.unsetCursor()
+        self._gauge_mgr.clear()
         self.gauge_status.setText("")
 
         try:
