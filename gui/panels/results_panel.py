@@ -412,10 +412,26 @@ class ResultsPanel(QWidget):
             ax.legend(fontsize=theme.MPL_LEGEND, loc='upper right', ncol=2)
 
         else:
-            ax.set_title("Cross-section (center row)", fontsize=theme.MPL_TITLE,
+            # Choose scan direction with more threshold crossings so the plot
+            # is meaningful for both horizontal and vertical line patterns.
+            ai = result.aerial_image
+            t_val = result.config.get('analysis', {}).get('cd_threshold', 0.30)
+            row_p = ai[ai.shape[0] // 2, :]
+            col_p = ai[:, ai.shape[1] // 2]
+
+            def _nc(p):
+                return sum(1 for i in range(len(p) - 1)
+                           if (p[i] - t_val) * (p[i + 1] - t_val) <= 0)
+
+            if _nc(col_p) > _nc(row_p):
+                profile = col_p
+                scan_label = "Cross-section (center column)"
+            else:
+                profile = row_p
+                scan_label = "Cross-section (center row)"
+
+            ax.set_title(scan_label, fontsize=theme.MPL_TITLE,
                          fontweight='600', color=theme.TEXT_PRIMARY, pad=6)
-            mid = result.aerial_image.shape[0] // 2
-            profile = result.aerial_image[mid, :]
             nils = result.nils
 
             try:
