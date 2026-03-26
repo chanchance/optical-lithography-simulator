@@ -276,7 +276,7 @@ class AnalysisPanel(QWidget):
 
     # ── Theme helper ───────────────────────────────────────────────────
 
-    def _style_ax(self, ax, title):
+    def _style_ax(self, ax, title, image_panel=False):
         ax.set_facecolor(theme.BG_SECONDARY)
         ax.set_title(title, fontsize=theme.MPL_TITLE, fontweight='600',
                      color=theme.TEXT_PRIMARY, pad=6)
@@ -285,16 +285,20 @@ class AnalysisPanel(QWidget):
         ax.spines['right'].set_visible(False)
         ax.spines['left'].set_color(theme.BORDER)
         ax.spines['bottom'].set_color(theme.BORDER)
+        if image_panel:
+            ax.grid(False)
+        else:
+            ax.grid(True, color=theme.MPL_GRID, linewidth=0.5, alpha=0.7, zorder=0)
 
     def _init_plots(self):
-        for ax, title in [
-            (self.ax_bossung, "Bossung Curves"),
-            (self.ax_fem,     "Focus-Exposure Matrix"),
-            (self.ax_pw,      "Process Window"),
-            (self.ax_metrics, "Key Metrics"),
+        for ax, title, is_img in [
+            (self.ax_bossung, "Bossung Curves",        False),
+            (self.ax_fem,     "Focus-Exposure Matrix", True),
+            (self.ax_pw,      "Process Window",        False),
+            (self.ax_metrics, "Key Metrics",           False),
         ]:
             ax.clear()
-            self._style_ax(ax, title)
+            self._style_ax(ax, title, image_panel=is_img)
             ax.text(0.5, 0.5, 'No data', ha='center', va='center',
                     fontsize=theme.MPL_LABEL, color=theme.TEXT_TERTIARY,
                     transform=ax.transAxes)
@@ -361,16 +365,19 @@ class AnalysisPanel(QWidget):
         ax.clear()
         self._style_ax(ax, "Bossung Curves")
 
-        cmap = cm.colormaps['tab10'] if hasattr(cm, 'colormaps') else cm.get_cmap('tab10')
+        colors = theme.BOSSUNG_COLORS
         for i, curve in enumerate(curves):
             focus, cd = curve.to_arrays()
-            color = cmap(i % 10)
+            color = colors[i % len(colors)]
             is_nominal = abs(curve.dose_factor - 1.0) < 0.01
-            lw = 2.0 if is_nominal else 1.3
-            ax.plot(focus, cd, '-o', color=color, linewidth=lw,
-                    markersize=3, label="D={:.2f}×".format(curve.dose_factor), zorder=3)
+            lw = 2.2 if is_nominal else 1.4
+            alpha = 1.0 if is_nominal else 0.85
+            label = "D={:.2f}× ★".format(curve.dose_factor) if is_nominal else "D={:.2f}×".format(curve.dose_factor)
+            ax.plot(focus, cd, '-o', color=color, linewidth=lw, alpha=alpha,
+                    markersize=3 if not is_nominal else 4, label=label,
+                    zorder=4 if is_nominal else 3)
             ax.axvline(curve.best_focus_nm, color=color, linestyle=':',
-                       linewidth=0.8, alpha=0.5)
+                       linewidth=0.8, alpha=0.3)
 
         cd_target = self.cd_target_sb.value()
         tol = self.cd_tol_sb.value() / 100.0
@@ -430,17 +437,21 @@ class AnalysisPanel(QWidget):
             ax.add_patch(ellipse)
             ax.plot(nominal.best_focus_nm, 100.0, '+',
                     color=theme.ACCENT, markersize=12, markeredgewidth=1.8, zorder=3)
+            ax.axhline(100.0, color=theme.TEXT_TERTIARY, linestyle=':', linewidth=0.8, alpha=0.4, zorder=1)
+            ax.axvline(nominal.best_focus_nm, color=theme.TEXT_TERTIARY, linestyle=':', linewidth=0.8, alpha=0.4, zorder=1)
             margin = max(dof, 30) * 1.6
             ax.set_xlim(nominal.best_focus_nm - margin, nominal.best_focus_nm + margin)
             ax.set_ylim(100.0 - el_pct * 1.8 - 1, 100.0 + el_pct * 1.8 + 1)
             ax.set_xlabel("Defocus (nm)", fontsize=theme.MPL_LABEL)
             ax.set_ylabel("Dose (%)", fontsize=theme.MPL_LABEL)
+            ax.set_title("Process Window  DOF={:.0f} nm  EL={:.1f}%".format(dof, el_pct),
+                         fontsize=theme.MPL_TITLE, fontweight='600', color=theme.TEXT_PRIMARY, pad=6)
             ax.text(0.05, 0.95,
                     "DOF={:.0f} nm\nEL={:.1f}%".format(dof, el_pct),
                     transform=ax.transAxes, fontsize=theme.MPL_TICK,
                     va='top', color=theme.TEXT_SECONDARY,
-                    bbox=dict(boxstyle='round,pad=0.3', fc='white',
-                              ec=theme.BORDER, alpha=0.85))
+                    bbox=dict(boxstyle='round,pad=0.3', fc=theme.BG_PRIMARY,
+                              ec=theme.BORDER, alpha=0.9))
         else:
             ax.text(0.5, 0.5, 'Insufficient data', ha='center', va='center',
                     fontsize=theme.MPL_LABEL, color=theme.TEXT_TERTIARY,
@@ -492,14 +503,14 @@ class AnalysisPanel(QWidget):
     def _plot_fem(self, fem):
         ax = self.ax_fem
         ax.clear()
-        self._style_ax(ax, "Focus-Exposure Matrix")
+        self._style_ax(ax, "Focus-Exposure Matrix", image_panel=True)
 
         cd_target = self.cd_target_sb.value()
         cd_tol_pct = self.cd_tol_sb.value()
 
         im = ax.imshow(
             fem.cd_matrix,
-            cmap='RdYlGn',
+            cmap='plasma',
             origin='lower',
             aspect='auto',
             extent=[
@@ -509,7 +520,7 @@ class AnalysisPanel(QWidget):
             vmin=cd_target * (1 - cd_tol_pct / 100),
             vmax=cd_target * (1 + cd_tol_pct / 100),
         )
-        cb = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cb = self.figure.colorbar(im, ax=ax, fraction=0.035, shrink=0.85, pad=0.03)
         cb.set_label("CD (nm)", fontsize=theme.MPL_ANNOT)
         cb.ax.tick_params(labelsize=theme.MPL_ANNOT)
 
@@ -519,7 +530,7 @@ class AnalysisPanel(QWidget):
         focus_grid = fem.focus_values
         if pw_mask.shape[0] > 1 and pw_mask.shape[1] > 1:
             ax.contour(dose_grid, focus_grid, pw_mask.astype(float),
-                       levels=[0.5], colors=[theme.ACCENT], linewidths=1.5)
+                       levels=[0.5], colors=[theme.ACCENT], linewidths=2.0)
 
         # CD value labels on sparse grid
         n_focus, n_dose = fem.cd_matrix.shape
@@ -531,7 +542,8 @@ class AnalysisPanel(QWidget):
                     fem.dose_values[di], fem.focus_values[fi],
                     "{:.0f}".format(fem.cd_matrix[fi, di]),
                     ha='center', va='center',
-                    fontsize=theme.MPL_ANNOT, color='black', fontweight='600',
+                    fontsize=theme.MPL_ANNOT, color='white', fontweight='600',
+                    bbox=dict(boxstyle='round,pad=0.1', fc='black', ec='none', alpha=0.45),
                 )
 
         ax.set_xlabel("Dose factor", fontsize=theme.MPL_LABEL)
@@ -572,17 +584,21 @@ class AnalysisPanel(QWidget):
             ax.add_patch(ellipse)
             ax.plot(best_focus, 100.0, '+',
                     color=theme.ACCENT, markersize=12, markeredgewidth=1.8, zorder=3)
+            ax.axhline(100.0, color=theme.TEXT_TERTIARY, linestyle=':', linewidth=0.8, alpha=0.4, zorder=1)
+            ax.axvline(best_focus, color=theme.TEXT_TERTIARY, linestyle=':', linewidth=0.8, alpha=0.4, zorder=1)
             margin = max(dof, 30) * 1.6
             ax.set_xlim(best_focus - margin, best_focus + margin)
             ax.set_ylim(100.0 - el_pct * 1.8 - 1, 100.0 + el_pct * 1.8 + 1)
             ax.set_xlabel("Defocus (nm)", fontsize=theme.MPL_LABEL)
             ax.set_ylabel("Dose (%)", fontsize=theme.MPL_LABEL)
+            ax.set_title("Process Window  DOF={:.0f} nm  EL={:.1f}%".format(dof, el_pct),
+                         fontsize=theme.MPL_TITLE, fontweight='600', color=theme.TEXT_PRIMARY, pad=6)
             ax.text(0.05, 0.95,
                     "DOF={:.0f} nm\nEL={:.1f}%".format(dof, el_pct),
                     transform=ax.transAxes, fontsize=theme.MPL_TICK,
                     va='top', color=theme.TEXT_SECONDARY,
-                    bbox=dict(boxstyle='round,pad=0.3', fc='white',
-                              ec=theme.BORDER, alpha=0.85))
+                    bbox=dict(boxstyle='round,pad=0.3', fc=theme.BG_PRIMARY,
+                              ec=theme.BORDER, alpha=0.9))
         else:
             ax.text(0.5, 0.5, 'No process window found', ha='center', va='center',
                     fontsize=theme.MPL_LABEL, color=theme.TEXT_TERTIARY,
@@ -631,14 +647,28 @@ class AnalysisPanel(QWidget):
         self._style_ax(ax, "Key Metrics")
         ax.set_axis_off()
 
-        y = 0.90
-        dy = 0.135
+        # Header label
+        ax.text(0.05, 0.97, "KEY METRICS",
+                transform=ax.transAxes,
+                fontsize=theme.MPL_ANNOT, color=theme.TEXT_TERTIARY,
+                fontweight='700', va='top')
+
+        y = 0.86
+        dy = 0.13
         for k, v in rows:
-            ax.text(0.05, y, k, transform=ax.transAxes,
+            is_dash = v.strip() == '\u2014'
+            val_color = theme.TEXT_TERTIARY if is_dash else theme.TEXT_PRIMARY
+            ax.text(0.05, y, k,
+                    transform=ax.transAxes,
                     fontsize=theme.MPL_LABEL, color=theme.TEXT_SECONDARY, va='top')
-            ax.text(0.95, y, v, transform=ax.transAxes,
-                    fontsize=theme.MPL_LABEL, color=theme.TEXT_PRIMARY,
-                    fontweight='600', va='top', ha='right')
+            ax.text(0.95, y, v,
+                    transform=ax.transAxes,
+                    fontsize=theme.MPL_LABEL, color=val_color,
+                    fontweight='700', va='top', ha='right')
+            divider_y = y - dy * 0.75
+            ax.plot([0.05, 0.95], [divider_y, divider_y],
+                    transform=ax.transAxes,
+                    color=theme.BORDER, linewidth=0.5, solid_capstyle='butt')
             y -= dy
 
         self.canvas.draw_idle()
