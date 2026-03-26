@@ -480,8 +480,12 @@ class ResultsPanel(QWidget):
             xl, yl, ext = self._pixel_extent(result, result.aerial_image.shape)
             self.ax_overlay.imshow(result.aerial_image, cmap='inferno', origin='lower',
                                    alpha=0.7, extent=ext, aspect='auto')
-            self.ax_overlay.contour(result.mask_grid, levels=[0.5],
-                                    colors='cyan', linewidths=0.8, extent=ext)
+            # contour() does not accept 'extent'; pass explicit X, Y arrays
+            ny, nx = result.mask_grid.shape
+            cx = np.linspace(ext[0], ext[1], nx)
+            cy = np.linspace(ext[2], ext[3], ny)
+            self.ax_overlay.contour(cx, cy, result.mask_grid, levels=[0.5],
+                                    colors='cyan', linewidths=0.8)
             self.ax_overlay.set_xlabel(xl, fontsize=theme.MPL_LABEL)
             self.ax_overlay.set_ylabel(yl, fontsize=theme.MPL_LABEL)
             self.ax_overlay.tick_params(labelsize=theme.MPL_TICK)
