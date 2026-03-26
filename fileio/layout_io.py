@@ -70,14 +70,24 @@ class LayoutData:
     precision_nm: float            # Layout precision in nm
     top_cell_name: str
     layers: Dict[int, LayerInfo]   # layer_num -> LayerInfo
-    polygons_by_layer: Dict[int, List[np.ndarray]]  # layer_num -> list of (N,2) arrays in nm
+    polygons_by_layer: Dict[int, List[np.ndarray]]  # layer_num -> display-sampled (N,2) arrays in nm
     bounding_box: Optional[BoundingBox] = None
+    # Full (un-sampled) polygon set used for simulation rasterization.
+    # polygons_by_layer may be a random subset when max_display_polygons is
+    # exceeded; _sim_polygons_by_layer always holds every polygon so the
+    # mask grid is never silently incomplete.
+    _sim_polygons_by_layer: Dict[int, List[np.ndarray]] = field(default_factory=dict)
 
     def get_layer_numbers(self) -> List[int]:
         return sorted(self.layers.keys())
 
     def get_polygons(self, layer: int) -> List[np.ndarray]:
+        """Return display-sampled polygons for layer (for rendering only)."""
         return self.polygons_by_layer.get(layer, [])
+
+    def get_simulation_polygons(self, layer: int) -> List[np.ndarray]:
+        """Return full (un-sampled) polygon set for layer (for simulation)."""
+        return self._sim_polygons_by_layer.get(layer, self.polygons_by_layer.get(layer, []))
 
     def get_all_polygons(self) -> List[np.ndarray]:
         all_polys = []
@@ -242,11 +252,16 @@ class LayoutReader:
         layer_keys = sorted(raw_by_layer.keys())
         per_layer_budget = max(1, max_display_polygons // max(1, n_layers))
 
+        sim_polygons_by_layer: Dict[int, List[np.ndarray]] = {}
+
         for li, layer_num in enumerate(layer_keys):
             polys = raw_by_layer[layer_num]
             real_count = len(polys)
 
-            # Sample if over budget
+            # Always store the full set for simulation correctness.
+            sim_polygons_by_layer[layer_num] = polys
+
+            # Sample if over display budget (rendering performance only).
             if real_count > per_layer_budget:
                 sampled = random.sample(polys, per_layer_budget)
             else:
@@ -292,7 +307,8 @@ class LayoutReader:
             top_cell_name=top_cell_name,
             layers=layers,
             polygons_by_layer=polygons_by_layer,
-            bounding_box=bbox
+            bounding_box=bbox,
+            _sim_polygons_by_layer=sim_polygons_by_layer,
         )
 
     def _create_mock_layout(self, filepath: str, fmt: str) -> 'LayoutData':
@@ -434,7 +450,10 @@ class MaskGridGenerator:
 
         all_polygons = []
         for layer_num in layers:
-            all_polygons.extend(layout.get_polygons(layer_num))
+            # Use full (un-sampled) polygon set for simulation correctness.
+            # get_simulation_polygons() falls back to display polygons when
+            # _sim_polygons_by_layer is absent (e.g. mock layouts).
+            all_polygons.extend(layout.get_simulation_polygons(layer_num))
 
         if not all_polygons:
             return np.ones((self.grid_size, self.grid_size), dtype=np.float64)
