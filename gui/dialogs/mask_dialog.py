@@ -1,17 +1,28 @@
-"""Mask settings dialog (stub)."""
+"""Mask settings dialog."""
 try:
     from PySide6.QtWidgets import (
         QDialog, QVBoxLayout, QLabel, QComboBox,
         QFormLayout, QDialogButtonBox
     )
+    from PySide6.QtCore import Qt
 except ImportError:
     try:
         from PyQt5.QtWidgets import (
             QDialog, QVBoxLayout, QLabel, QComboBox,
             QFormLayout, QDialogButtonBox
         )
+        from PyQt5.QtCore import Qt
     except ImportError:
         QDialog = object
+        Qt = None
+
+from gui import theme
+
+_MASK_DESCRIPTIONS = {
+    0: "완전 투명/불투명 이진 마스크 (Cr/MoSi 흡수층)",
+    1: "6% 위상 반전 마스크 — 투과율 6%, 위상차 180°",
+    2: "교번 위상 반전 마스크 — 인접 개구부 180° 위상 교번",
+}
 
 
 class MaskDialog(QDialog if QDialog != object else object):
@@ -21,12 +32,15 @@ class MaskDialog(QDialog if QDialog != object else object):
         if QDialog is object:
             return
         super().__init__(parent)
+        self.setStyleSheet(theme.get_qss())
         self.setWindowTitle('Mask Settings')
+        self.setMinimumWidth(380)
         self._mask_type = mask_type
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 12)
 
         form = QFormLayout()
 
@@ -38,12 +52,30 @@ class MaskDialog(QDialog if QDialog != object else object):
         form.addRow('Mask type:', self.type_combo)
 
         layout.addLayout(form)
-        layout.addWidget(QLabel('Additional mask settings coming soon.'))
+
+        self.desc_label = QLabel(_MASK_DESCRIPTIONS[idx])
+        self.desc_label.setWordWrap(True)
+        self.desc_label.setMaximumHeight(54)  # ~3 lines at 18px line height
+        self.desc_label.setStyleSheet(
+            f"color: {theme.TEXT_SECONDARY}; font-size: 11px;"
+        )
+        layout.addWidget(self.desc_label)
+
+        self.type_combo.currentIndexChanged.connect(self._on_type_changed)
+
+        layout.addStretch()
 
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        ok_btn.setProperty("class", "primary")
+        cancel_btn = buttons.button(QDialogButtonBox.Cancel)
+        cancel_btn.setObjectName("secondary")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
+
+    def _on_type_changed(self, index: int):
+        self.desc_label.setText(_MASK_DESCRIPTIONS.get(index, ""))
 
     def get_mask_type(self) -> str:
         """Return selected mask type key (lowercase, consistent with mask_model)."""
