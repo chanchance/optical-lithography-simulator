@@ -315,6 +315,11 @@ class MainWindow(QMainWindow):
         config = self.param_panel.get_config()
         layout_path = self.layout_panel.get_layout_path()
 
+        # Inject film stack into config if available
+        film_stack = self.stack_panel.get_film_stack()
+        if film_stack is not None:
+            config.setdefault('_film_stack', film_stack)
+
         # Inject polarization into config if non-scalar is selected
         pol_text = self.results_panel.get_polarization()
         if pol_text != "Scalar":

@@ -131,6 +131,18 @@ class SimulationPipeline:
             if flare_frac is not None and result.euv_mode:
                 from core.euv_mask import EUVFlare
                 aerial_image = EUVFlare(flare_fraction=flare_frac).apply(aerial_image)
+            # Apply film stack TMM correction if provided
+            film_stack_tmm = config.get('_film_stack')
+            if film_stack_tmm is not None:
+                try:
+                    from core.film_stack import TransferMatrixEngine
+                    kx_zero = np.array([0.0])
+                    ky_zero = np.array([0.0])
+                    tmm = TransferMatrixEngine()
+                    ff = tmm.film_factor(film_stack_tmm, kx_zero, ky_zero)
+                    aerial_image = aerial_image * float(np.abs(ff[0]) ** 2)
+                except Exception as e:
+                    warnings.warn("Film stack TMM failed: {}".format(e))
             result.aerial_image = aerial_image
             progress('Aerial image done', 75)
 
@@ -194,6 +206,18 @@ class SimulationPipeline:
                 'line_space', N, domain_nm, period_px=N // 4
             )
             mask_grid = np.abs(mask.transmission).astype(np.float64)
+
+        # Apply mask type (AttPSM / AltPSM) to transform binary grid to complex transmission.
+        # Binary mask_type passes through unchanged (float array).
+        litho_cfg_mt = config.get('lithography', {})
+        mask_type_str = litho_cfg_mt.get('mask_type', 'binary').lower()
+        if mask_type_str in ('att_psm', 'attpsm', 'alt_psm', 'altpsm'):
+            from core.mask_model import ThinScalarMask
+            N_mt = mask_grid.shape[0]
+            domain_nm_mt = config.get('simulation', {}).get('domain_size_nm', 2000.0)
+            thin = ThinScalarMask(N_mt, domain_nm_mt, mask_type=mask_type_str)
+            thin.set_binary(np.abs(mask_grid).astype(np.float64))
+            mask_grid = thin.transmission  # complex array
 
         # Apply EUV multilayer mask model when wavelength is 13.5nm.
         # Must run for both GDS-loaded and synthetic masks — was previously
