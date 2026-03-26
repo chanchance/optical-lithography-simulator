@@ -9,7 +9,7 @@ from gui.qt_compat import (
     QMainWindow, QTabWidget, QStatusBar, QProgressBar,
     QLabel, QFileDialog, QMessageBox, QApplication,
     QToolBar, QStyle, Qt, QThread, Signal, QObject, QAction,
-    QWidget, QVBoxLayout,
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFrame,
 )
 from gui import theme
 
@@ -97,6 +97,45 @@ class _StackPanel(QWidget):
         return self._dialog.get_film_stack() if self._dialog else None
 
 
+# ── Workflow step indicator bar ────────────────────────────────────────────────
+
+class _WorkflowBar(QWidget):
+    step_clicked = Signal(int)
+
+    STEPS = ["1. Layout", "2. Parameters", "3. Simulation", "4. Results", "5. Analysis"]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 6, 12, 6)
+        layout.setSpacing(0)
+        self._btns = []
+        for i, label in enumerate(self.STEPS):
+            btn = QPushButton(label)
+            btn.setFlat(True)
+            btn.setObjectName("workflow_step")
+            btn.clicked.connect(lambda checked, idx=i: self.step_clicked.emit(idx))
+            self._btns.append(btn)
+            layout.addWidget(btn)
+            if i < len(self.STEPS) - 1:
+                arrow = QLabel("→")
+                arrow.setObjectName("caption")
+                layout.addWidget(arrow)
+        layout.addStretch()
+        self.set_current(0)
+
+    def set_current(self, idx):
+        for i, btn in enumerate(self._btns):
+            if i == idx:
+                btn.setStyleSheet(
+                    "font-weight: 700; color: {ACCENT}; background: transparent; border: none;".format(
+                        ACCENT=theme.ACCENT))
+            else:
+                btn.setStyleSheet(
+                    "font-weight: 400; color: {TEXT_SECONDARY}; background: transparent; border: none;".format(
+                        TEXT_SECONDARY=theme.TEXT_SECONDARY))
+
+
 # ── Main window ────────────────────────────────────────────────────────────────
 
 class MainWindow(QMainWindow):
@@ -123,7 +162,6 @@ class MainWindow(QMainWindow):
 
         self.setMinimumSize(900, 650)
         self.tabs = QTabWidget()
-        self.setCentralWidget(self.tabs)
 
         self.layout_panel = LayoutPanel()
         self.param_panel = ParameterPanel()
@@ -140,10 +178,29 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.analysis_panel, "Analysis")
         self.tabs.addTab(self.stack_panel, "Stack")
 
+        # Workflow bar + separator above tabs
+        self._workflow_bar = _WorkflowBar()
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: {};".format(theme.BORDER))
+
+        container = QWidget()
+        vbox = QVBoxLayout(container)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setSpacing(0)
+        vbox.addWidget(self._workflow_bar)
+        vbox.addWidget(sep)
+        vbox.addWidget(self.tabs)
+        self.setCentralWidget(container)
+
         # Wire signals
         self.sim_panel.run_requested.connect(self._run_simulation)
         self.sim_panel.stop_requested.connect(self._stop_simulation)
         self.layout_panel.layout_loaded.connect(self._on_layout_loaded)
+        self.tabs.currentChanged.connect(self._workflow_bar.set_current)
+        self._workflow_bar.step_clicked.connect(self.tabs.setCurrentIndex)
+        self.analysis_panel.navigate_requested.connect(self.tabs.setCurrentIndex)
 
     def _on_layout_loaded(self, path):
         basename = os.path.basename(path)
@@ -151,6 +208,8 @@ class MainWindow(QMainWindow):
         self._status("Layout loaded: {}".format(basename))
         if hasattr(self, 'layout_label'):
             self.layout_label.setText(basename)
+        # Hint user to move to Parameters next
+        self._workflow_bar.set_current(1)
 
     def _build_menu(self):
         mb = self.menuBar()

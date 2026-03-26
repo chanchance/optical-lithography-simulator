@@ -149,6 +149,8 @@ class _FEMThread(QThread):
 # ── Analysis Panel ──────────────────────────────────────────────────────────
 
 class AnalysisPanel(QWidget):
+    navigate_requested = Signal(int)  # tab index
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._result = None
@@ -232,6 +234,12 @@ class AnalysisPanel(QWidget):
         self.status_label.setWordWrap(True)
         self.status_label.setStyleSheet("padding: 4px 6px; border-radius: 4px;")
         lv.addWidget(self.status_label)
+
+        self._goto_sim_btn = QPushButton("Go to Simulation →")
+        self._goto_sim_btn.setObjectName("secondary")
+        self._goto_sim_btn.clicked.connect(lambda: self.navigate_requested.emit(2))
+        lv.addWidget(self._goto_sim_btn)
+
         lv.addStretch()
 
         metrics_group = QGroupBox("Metrics")
@@ -316,6 +324,7 @@ class AnalysisPanel(QWidget):
         self._result = sim_result
         self._config = getattr(sim_result, 'config', None)
         self._layout_path = getattr(sim_result, 'layout_path', None)
+        self._goto_sim_btn.setVisible(False)
         if sim_result.cd_nm > 0:
             self.cd_target_sb.setValue(sim_result.cd_nm)
         self.status_label.setText(
