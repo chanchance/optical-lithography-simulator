@@ -84,9 +84,14 @@ class CAResist(BaseResist):
         px_per_nm = len(latent_image) / self.domain_size_nm
         sigma_px = self.peb_sigma_nm * px_per_nm
         acid_diffused = gaussian_filter(latent_image, sigma=max(0.1, sigma_px))
-        # Deprotection (logistic)
+        # Deprotection (logistic) — sigmoid midpoint is at acid = exposure_threshold.
+        # The natural binary development boundary is at deprotection = 0.5 (sigmoid
+        # midpoint), which exactly corresponds to acid = exposure_threshold.
+        # Using exposure_threshold (0.3) as the deprotection cutoff would instead
+        # correspond to acid ≈ exposure_threshold - ln(7/3)/amplification, introducing
+        # a systematic ~5% shift in the CD boundary.
         deprotection = 1.0 / (1.0 + np.exp(-self.amplification * (acid_diffused - self.exposure_threshold)))
-        t = threshold if threshold is not None else self.exposure_threshold
+        t = threshold if threshold is not None else 0.5
         return (deprotection < t).astype(float)
 
 
