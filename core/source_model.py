@@ -170,19 +170,23 @@ class QuadrupoleSource(BaseSource):
             (0.0, -self.sigma_r),
         ]
 
-        n = max(2, self.N_points)
-        theta = np.linspace(0, 2*np.pi, n*4, endpoint=False)
-        r_arr = np.linspace(0, self.sigma_c, max(2, n))
+        # Use Cartesian disc sampling (uniform area weighting).
+        # The previous polar sampling (r_arr × theta) degenerated at r=0:
+        # every angle step produced the same point, giving the pole center
+        # n*4 times the weight of any other sample point.
+        n = max(4, self.N_points * 3)
+        lin = np.linspace(-self.sigma_c, self.sigma_c, n)
+        KX_d, KY_d = np.meshgrid(lin, lin, indexing='ij')
+        in_disc = (KX_d**2 + KY_d**2) <= self.sigma_c**2
 
         all_points = []
         for cx, cy in pole_centers:
-            for r in r_arr:
-                for t in theta:
-                    kx = cx + r * np.cos(t)
-                    ky = cy + r * np.sin(t)
-                    all_points.append((kx, ky))
+            kx_pts = cx + KX_d[in_disc]
+            ky_pts = cy + KY_d[in_disc]
+            for kx, ky in zip(kx_pts.ravel(), ky_pts.ravel()):
+                all_points.append((float(kx), float(ky)))
 
-        n_pts = len(all_points)
+        n_pts = max(1, len(all_points))
         weight = 1.0 / n_pts
         return [SourcePoint(float(p[0]), float(p[1]), weight, self.polarization)
                 for p in all_points]

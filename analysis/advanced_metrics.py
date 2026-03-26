@@ -187,9 +187,11 @@ class BossungAnalyzer:
             if cd_nominal > 0 and len(valid_focus) >= 3:
                 tol = cd_nominal * cd_tolerance_pct / 100.0
                 in_window = np.abs(cd_arr - cd_nominal) <= tol
-                # np.linspace step = range / (n-1), not range / n
-                focus_step = focus_range_nm / (focus_steps - 1) if focus_steps > 1 else 0.0
-                dof = float(np.sum(in_window) * focus_step)
+                in_window_focus = focus_values[in_window]
+                # DOF = span between first and last in-spec focus point.
+                # count * step overcounts by one step and is wrong for
+                # non-contiguous in-spec regions.
+                dof = float(in_window_focus[-1] - in_window_focus[0]) if len(in_window_focus) >= 2 else 0.0
             else:
                 dof = 0.0
 
