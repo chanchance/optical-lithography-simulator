@@ -22,7 +22,9 @@ except ImportError:
     )
 
 import matplotlib
-matplotlib.use('Agg')
+# Do NOT call matplotlib.use('Agg') here — it conflicts with the Qt backend
+# (backend_qtagg) which is already active when this dialog is opened from the
+# main window.  The FigureCanvasQTAgg import below sets the correct backend.
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 import matplotlib.patches as mpatches

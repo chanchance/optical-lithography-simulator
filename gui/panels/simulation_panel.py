@@ -217,11 +217,13 @@ class SimulationPanel(QWidget):
         # Escape HTML special characters
         safe = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
         if '[ERROR]' in text:
-            html = '<span style="color:#cc3333; font-family:monospace;">{}</span>'.format(safe)
+            color = theme.DANGER
         elif 'complete' in text.lower() or '100%' in text:
-            html = '<span style="color:#2d8a4e; font-family:monospace;">{}</span>'.format(safe)
+            color = theme.SUCCESS
         else:
-            html = '<span style="color:#333333; font-family:monospace;">{}</span>'.format(safe)
+            color = theme.TEXT_PRIMARY
+        html = '<span style="color:{}; font-family:monospace;">{}</span>'.format(
+            color, safe)
         self.log_edit.append(html)
         self.log_edit.moveCursor(QTextCursor.End)
 

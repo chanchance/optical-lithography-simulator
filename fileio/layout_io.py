@@ -13,6 +13,7 @@ Supports:
 """
 import os
 import random
+import warnings
 import numpy as np
 from typing import List, Optional, Dict, Tuple, Callable
 
@@ -358,6 +359,7 @@ class MaskGridGenerator:
 
         grid = np.zeros((N, N), dtype=np.float64)
 
+        n_clipped = 0
         for poly_nm in polygons:
             if len(poly_nm) < 3:
                 continue
@@ -366,8 +368,20 @@ class MaskGridGenerator:
                 (poly_nm[:, 0] - ox) / dx,
                 (poly_nm[:, 1] - oy) / dx
             ])
+            # Detect polygons partially or fully outside the domain
+            if (np.any(poly_grid < 0) or np.any(poly_grid > N)):
+                n_clipped += 1
             fill_mask = self._rasterize_polygon(poly_grid, N)
             grid[fill_mask] = 1.0
+
+        if n_clipped > 0:
+            warnings.warn(
+                "{} of {} polygon(s) extend outside the simulation domain "
+                "({}x{} nm) and were clipped. Consider increasing domain_size_nm "
+                "or adjusting the center.".format(
+                    n_clipped, len(polygons),
+                    self.domain_size_nm, self.domain_size_nm),
+                stacklevel=2)
 
         return grid
 
