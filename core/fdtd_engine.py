@@ -251,8 +251,8 @@ class FDTDSimulator:
 
         source_value = amplitude * envelope * np.sin(omega * t)
 
-        # Inject at z=pml_thickness plane
-        z_src = self.pml_thickness
+        # Inject at z=pml_thickness plane, clamped to valid range
+        z_src = min(self.pml_thickness, self.grid.nz - 1)
         if direction == 'z':
             if polarization == 'TE':
                 # TE: E in x-direction
