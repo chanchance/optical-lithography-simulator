@@ -85,7 +85,7 @@ class CAResist(BaseResist):
         sigma_px = self.peb_sigma_nm * px_per_nm
         acid_diffused = gaussian_filter(latent_image, sigma=max(0.1, sigma_px))
         # Deprotection (logistic)
-        deprotection = 1.0 / (1.0 + np.exp(-self.amplification * (acid_diffused - 0.3)))
+        deprotection = 1.0 / (1.0 + np.exp(-self.amplification * (acid_diffused - self.exposure_threshold)))
         t = threshold if threshold is not None else self.exposure_threshold
         return (deprotection < t).astype(float)
 
