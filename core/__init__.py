@@ -6,4 +6,5 @@ __all__ = [
     "mask_model",
     "imaging_system",
     "fdtd_engine",
+    "film_stack",
 ]
