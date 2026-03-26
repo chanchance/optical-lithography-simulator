@@ -132,14 +132,21 @@ def optimize_barc(wavelength_nm: float, n_resist: float, k_resist: float,
         for n0 in np.linspace(n_range[0], n_range[1], 3):
             for k0 in np.linspace(k_range[0], k_range[1], 3):
                 t0 = (thickness_range[0] + thickness_range[1]) / 2.0
-                res = minimize(
-                    objective, x0=[n0, k0, t0],
-                    bounds=[n_range, k_range, thickness_range],
-                    method='L-BFGS-B',
-                )
-                if res.fun < best_R:
-                    best_R = res.fun
-                    best_result = res.x
+                try:
+                    res = minimize(
+                        objective, x0=[n0, k0, t0],
+                        bounds=[n_range, k_range, thickness_range],
+                        method='L-BFGS-B',
+                    )
+                    if res.fun < best_R:
+                        best_R = res.fun
+                        best_result = res.x
+                except Exception:
+                    pass
+
+        if best_result is None:
+            # All minimize calls failed; fall through to brute-force path
+            raise ImportError("scipy.optimize.minimize failed for all starting points")
 
         n_opt, k_opt, t_opt = best_result
         return {'n': float(n_opt), 'k': float(k_opt),

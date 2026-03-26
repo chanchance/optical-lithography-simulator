@@ -455,7 +455,7 @@ class ParameterPanel(QWidget):
 
         self.ca_exposure_threshold_sb = QDoubleSpinBox()
         self.ca_exposure_threshold_sb.setRange(0.01, 1.0)
-        self.ca_exposure_threshold_sb.setValue(0.5)
+        self.ca_exposure_threshold_sb.setValue(0.3)
         self.ca_exposure_threshold_sb.setDecimals(3)
         self.ca_exposure_threshold_sb.setSingleStep(0.05)
         self.ca_exposure_threshold_sb.setToolTip("Development threshold on deprotection level [0,1]")
@@ -705,7 +705,7 @@ class ParameterPanel(QWidget):
         self.ca_qe_sb.setValue(resist_cfg.get("quantum_efficiency", 0.5))
         self.ca_amp_sb.setValue(resist_cfg.get("amplification", 50.0))
         self.ca_peb_sb.setValue(resist_cfg.get("peb_sigma_nm", 25.0))
-        self.ca_exposure_threshold_sb.setValue(resist_cfg.get("exposure_threshold", 0.5))
+        self.ca_exposure_threshold_sb.setValue(resist_cfg.get("exposure_threshold", 0.3))
 
         analysis_cfg = config.get("analysis", {})
         self.cd_threshold_sb.setValue(analysis_cfg.get("cd_threshold", 0.30))
