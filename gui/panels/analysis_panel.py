@@ -360,6 +360,9 @@ class AnalysisPanel(QWidget):
             return
         if self._bossung_thread and self._bossung_thread.isRunning():
             return
+        if self.dose_min_sb.value() >= self.dose_max_sb.value():
+            self.status_label.setText("Dose min must be less than dose max.")
+            return
         self.bossung_btn.setEnabled(False)
         self.status_label.setText("Computing Bossung curves...")
         self._bossung_thread = _BossungThread(
@@ -489,6 +492,9 @@ class AnalysisPanel(QWidget):
             self.status_label.setText("Run a simulation first.")
             return
         if self._fem_thread and self._fem_thread.isRunning():
+            return
+        if self.dose_min_sb.value() >= self.dose_max_sb.value():
+            self.status_label.setText("Dose min must be less than dose max.")
             return
         self.fem_btn.setEnabled(False)
         self.status_label.setText("Computing Focus-Exposure Matrix...")
