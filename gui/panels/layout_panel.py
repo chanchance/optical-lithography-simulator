@@ -116,13 +116,21 @@ class LayoutPanel(QWidget):
         # Toolbar
         tb = QHBoxLayout()
         self.open_btn = QPushButton("Open GDS/OAS")
+        self.open_btn.setObjectName("secondary")
         self.fit_btn = QPushButton("Fit View")
+        self.fit_btn.setObjectName("secondary")
         self.coord_label = QLabel("x: --   y: --")
-        self.coord_label.setFont(QFont("Courier", 11))
+        self.coord_label.setFont(QFont("Menlo", 10))
+        self.coord_label.setObjectName("caption")
+        self.coord_label.setStyleSheet(
+            "font-family: 'Menlo','SF Mono','Consolas',monospace; font-size: 11px;"
+        )
         self.open_btn.clicked.connect(self._open_file)
         self.fit_btn.clicked.connect(self._draw)
         tb.addWidget(self.open_btn)
         tb.addWidget(self.fit_btn)
+        tb.setSpacing(8)
+        tb.setContentsMargins(8, 6, 8, 6)
         tb.addStretch()
 
         # Progress bar in toolbar (hidden by default)
@@ -138,7 +146,7 @@ class LayoutPanel(QWidget):
         splitter = QSplitter(Qt.Horizontal)
 
         self.layer_list = QListWidget()
-        self.layer_list.setMaximumWidth(160)
+        self.layer_list.setMaximumWidth(180)
         self.layer_list.itemChanged.connect(self._on_layer_toggle)
         splitter.addWidget(self.layer_list)
 
@@ -150,7 +158,14 @@ class LayoutPanel(QWidget):
         self.figure = Figure(figsize=(6, 6), dpi=theme.MPL_DPI)
         self.ax = self.figure.add_subplot(111)
         self.ax.set_aspect('equal')
-        self.ax.set_title("No layout loaded")
+        self.ax.set_title("레이아웃 없음 — GDS/OAS 파일을 열어주세요")
+        self.ax.set_facecolor(theme.BG_SECONDARY)
+        self.ax.text(0.5, 0.5, "Open GDS/OAS to begin",
+                     ha='center', va='center',
+                     fontsize=12, color=theme.TEXT_TERTIARY,
+                     transform=self.ax.transAxes)
+        self.ax.set_axis_off()
+        self.figure.patch.set_facecolor(theme.BG_PRIMARY)
         self.canvas = FigureCanvas(self.figure)
         self.canvas.mpl_connect('motion_notify_event', self._on_mouse_move)
         canvas_layout.addWidget(self.canvas)
@@ -233,6 +248,8 @@ class LayoutPanel(QWidget):
             item = QListWidgetItem("Layer {}{}".format(layer, count_str))
             item.setCheckState(Qt.Checked)
             item.setData(Qt.UserRole, layer)
+            color = _COLORS[i % len(_COLORS)]
+            item.setForeground(QColor(color))
             self._layer_visible[layer] = True
             self.layer_list.addItem(item)
         self.layer_list.blockSignals(False)
