@@ -43,8 +43,9 @@ class AerialImageViewer:
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 8))
 
+        vmax = max(1.0, float(intensity_2d.max()))
         im = ax.imshow(intensity_2d, origin='lower', cmap=colormap,
-                        extent=self._get_extent(), vmin=0, vmax=1,
+                        extent=self._get_extent(), vmin=0, vmax=vmax,
                         interpolation='bilinear')
 
         if show_colorbar:
@@ -166,15 +167,16 @@ class AerialImageViewer:
         axes[0].set_ylabel('Y (nm)')
 
         # Panel 2: Aerial image
+        ai_vmax = max(1.0, float(aerial_image.max()))
         im = axes[1].imshow(aerial_image, origin='lower', cmap='hot',
-                            extent=self._get_extent(), vmin=0, vmax=1)
+                            extent=self._get_extent(), vmin=0, vmax=ai_vmax)
         plt.colorbar(im, ax=axes[1], label='Intensity')
         axes[1].set_title('Aerial Image')
         axes[1].set_xlabel('X (nm)')
 
         # Panel 3: Overlay with threshold contour
         axes[2].imshow(aerial_image, origin='lower', cmap='hot',
-                       extent=self._get_extent(), vmin=0, vmax=1, alpha=0.7)
+                       extent=self._get_extent(), vmin=0, vmax=ai_vmax, alpha=0.7)
         self.plot_threshold_contour(axes[2], aerial_image, threshold, 'cyan')
 
         # Overlay mask edges
