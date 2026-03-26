@@ -18,6 +18,7 @@ import matplotlib
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
+from matplotlib.patches import Circle
 import matplotlib.ticker as ticker
 
 # Bright gauge colours that stand out on inferno colormap
@@ -37,6 +38,7 @@ class ResultsPanel(QWidget):
         self._pending_p1 = None
         self._extent = None
         self._cb_aerial = None
+        self._cb_wf = None
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -52,12 +54,13 @@ class ResultsPanel(QWidget):
         self.figure = Figure(figsize=(12, 8), dpi=theme.MPL_DPI, constrained_layout=True)
         self.figure.patch.set_facecolor(theme.BG_PRIMARY)
 
-        gs = GridSpec(2, 6, figure=self.figure, hspace=0.4, wspace=0.4)
+        gs = GridSpec(2, 8, figure=self.figure, hspace=0.4, wspace=0.4)
         self.ax_aerial  = self.figure.add_subplot(gs[0, 0:2])
         self.ax_mask    = self.figure.add_subplot(gs[0, 2:4])
         self.ax_overlay = self.figure.add_subplot(gs[0, 4:6])
-        self.ax_cs      = self.figure.add_subplot(gs[1, 0:3])
-        self.ax_pw      = self.figure.add_subplot(gs[1, 3:6])
+        self.ax_wf      = self.figure.add_subplot(gs[0, 6:8])
+        self.ax_cs      = self.figure.add_subplot(gs[1, 0:4])
+        self.ax_pw      = self.figure.add_subplot(gs[1, 4:8])
 
         self.canvas = FigureCanvas(self.figure)
         self.canvas.mpl_connect('button_press_event', self._on_canvas_click)
@@ -259,6 +262,7 @@ class ResultsPanel(QWidget):
             (self.ax_aerial,  "Aerial Image"),
             (self.ax_mask,    "Mask"),
             (self.ax_overlay, "Overlay"),
+            (self.ax_wf,      "Wavefront Error (waves)"),
             (self.ax_cs,      "Cross-section"),
             (self.ax_pw,      "Process Window"),
         ]:
@@ -432,6 +436,75 @@ class ResultsPanel(QWidget):
             ax.tick_params(labelsize=theme.MPL_TICK)
             ax.legend(fontsize=theme.MPL_LEGEND, loc='upper right')
 
+    def _draw_wavefront(self, result):
+        """Draw 2D wavefront error map (ax_wf) from Zernike aberration config."""
+        ax = self.ax_wf
+
+        if self._cb_wf is not None:
+            try:
+                self._cb_wf.remove()
+            except Exception:
+                pass
+            self._cb_wf = None
+
+        ax.clear()
+        self._style_ax(ax, "Wavefront Error (waves)")
+
+        try:
+            aber = result.config["lithography"]["aberrations"]
+        except Exception:
+            aber = {}
+
+        zernike_list = aber.get("zernike", []) if isinstance(aber, dict) else []
+
+        # Hide map when all coefficients are zero or absent
+        if not zernike_list or all(v == 0.0 for v in zernike_list):
+            ax.set_axis_off()
+            return
+
+        from core.aberrations import ZernikeAberration
+        za = ZernikeAberration.from_list(zernike_list)
+
+        # Build normalized pupil grid
+        N = 256
+        lin = np.linspace(-1.0, 1.0, N)
+        KX, KY = np.meshgrid(lin, lin)
+        phase_rad = za.pupil_phase(KX, KY)
+        wf_waves = phase_rad / (2.0 * np.pi)   # convert radians → waves
+
+        # Mask outside pupil (leave as NaN so imshow shows background color)
+        rho = np.sqrt(KX**2 + KY**2)
+        wf_waves[rho > 1.0] = np.nan
+
+        # Symmetric color limits centered on 0
+        vmax = np.nanmax(np.abs(wf_waves))
+        vmax = max(vmax, 1e-6)
+
+        im = ax.imshow(
+            wf_waves, cmap='RdBu_r', origin='lower',
+            extent=[-1, 1, -1, 1], aspect='equal',
+            vmin=-vmax, vmax=vmax,
+        )
+        self._cb_wf = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        self._cb_wf.set_label("waves", fontsize=theme.MPL_ANNOT)
+        self._cb_wf.ax.tick_params(labelsize=theme.MPL_ANNOT)
+
+        # NA boundary circle
+        circle = Circle((0, 0), 1.0, fill=False,
+                         edgecolor='white', linewidth=1.2, linestyle='--')
+        ax.add_patch(circle)
+
+        ax.set_xlabel("Pupil x (norm.)", fontsize=theme.MPL_LABEL)
+        ax.set_ylabel("Pupil y (norm.)", fontsize=theme.MPL_LABEL)
+        ax.tick_params(labelsize=theme.MPL_TICK)
+        ax.set_xlim(-1.1, 1.1)
+        ax.set_ylim(-1.1, 1.1)
+        ax.set_axis_on()
+
+        # RMS over pupil (stored for metrics table)
+        pupil_vals = wf_waves[rho <= 1.0]
+        self._wfe_rms = float(np.sqrt(np.nanmean(pupil_vals**2))) if pupil_vals.size else 0.0
+
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -492,6 +565,10 @@ class ResultsPanel(QWidget):
         else:
             self.ax_overlay.set_axis_off()
 
+        # ---- Wavefront error ----
+        self._wfe_rms = 0.0
+        self._draw_wavefront(result)
+
         # ---- Cross-section ----
         self._draw_cross_section()
 
@@ -503,6 +580,7 @@ class ResultsPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _update_table(self, result):
+        wfe_rms = getattr(self, '_wfe_rms', 0.0)
         rows = [
             ("CD (nm)",  "{:.2f}".format(result.cd_nm)),
             ("NILS",     "{:.3f}".format(result.nils)),
@@ -510,6 +588,7 @@ class ResultsPanel(QWidget):
             ("DOF (nm)", "{:.1f}".format(result.metrics.get('dof_nm', 0.0))),
             ("I_max",    "{:.3f}".format(result.metrics.get('i_max', 0.0))),
             ("I_min",    "{:.3f}".format(result.metrics.get('i_min', 0.0))),
+            ("WFE RMS",  "{:.4f} \u03bb".format(wfe_rms)),
             ("Status",   result.status),
         ]
         self.table.setRowCount(len(rows))
