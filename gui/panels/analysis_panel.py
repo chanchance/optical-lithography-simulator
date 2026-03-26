@@ -169,20 +169,22 @@ class AnalysisPanel(QWidget):
 
         # ── Left controls ────────────────────────────────────────────
         left = QWidget()
-        left.setMinimumWidth(220)
-        left.setMaximumWidth(270)
+        left.setMinimumWidth(230)
+        left.setMaximumWidth(280)
         lv = QVBoxLayout(left)
         lv.setContentsMargins(theme.SP_MD, theme.SP_MD, theme.SP_MD, theme.SP_MD)
         lv.setSpacing(theme.SP_SM)
 
         run_group = QGroupBox("Analysis Controls")
         run_layout = QVBoxLayout(run_group)
-        run_layout.setSpacing(theme.SP_SM)
+        run_layout.setSpacing(10)
 
         self.bossung_btn = QPushButton("Run Bossung")
         self.bossung_btn.setObjectName("secondary")
+        self.bossung_btn.setMinimumHeight(40)
         self.fem_btn = QPushButton("Run FEM")
         self.fem_btn.setObjectName("secondary")
+        self.fem_btn.setMinimumHeight(36)
         self.bossung_btn.clicked.connect(self._run_bossung)
         self.fem_btn.clicked.connect(self._run_fem)
         run_layout.addWidget(self.bossung_btn)
@@ -191,7 +193,7 @@ class AnalysisPanel(QWidget):
 
         param_group = QGroupBox("Parameters")
         form = QFormLayout(param_group)
-        form.setSpacing(theme.SP_SM)
+        form.setSpacing(10)
 
         self.focus_range_sb = QDoubleSpinBox()
         self.focus_range_sb.setRange(50, 2000)
@@ -228,6 +230,7 @@ class AnalysisPanel(QWidget):
         self.status_label = QLabel("No simulation result loaded.")
         self.status_label.setObjectName("caption")
         self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet("padding: 4px 6px; border-radius: 4px;")
         lv.addWidget(self.status_label)
         lv.addStretch()
 
@@ -239,7 +242,8 @@ class AnalysisPanel(QWidget):
         self.metrics_table.horizontalHeader().setStretchLastSection(True)
         self.metrics_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.metrics_table.setSelectionMode(QTableWidget.NoSelection)
-        self.metrics_table.setMinimumHeight(180)
+        self.metrics_table.setMinimumHeight(200)
+        self.metrics_table.setAlternatingRowColors(True)
         mv.addWidget(self.metrics_table)
         lv.addWidget(metrics_group)
 
