@@ -38,6 +38,7 @@ class SourceDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Illumination Source Preview")
         self.resize(720, 520)
+        self.setStyleSheet(theme.get_qss())
         self._build_ui()
         if config:
             self._load_from_config(config)
@@ -226,10 +227,10 @@ class SourceDialog(QDialog):
             row.addStretch()
             return row
 
-        legend_layout.addLayout(_legend_row('#000000', 'solid', 'NA boundary'))
-        legend_layout.addLayout(_legend_row('#cc3333', 'dashed', 'σ outer'))
-        legend_layout.addLayout(_legend_row('#3366cc', 'dashed', 'σ inner'))
-        legend_layout.addLayout(_legend_row('#aaaaaa', 'dashed', 'σ = 0.25/0.5/0.75'))
+        legend_layout.addLayout(_legend_row(theme.TEXT_PRIMARY, 'solid', 'NA boundary'))
+        legend_layout.addLayout(_legend_row(theme.DANGER, 'dashed', 'σ outer'))
+        legend_layout.addLayout(_legend_row(theme.ACCENT, 'dashed', 'σ inner'))
+        legend_layout.addLayout(_legend_row(theme.TEXT_TERTIARY, 'dashed', 'σ = 0.25/0.5/0.75'))
         left_layout.addWidget(legend_group)
         left_layout.addStretch()
 
@@ -364,14 +365,14 @@ class SourceDialog(QDialog):
         """Draw dashed sigma_outer (red) and sigma_inner (blue) reference circles."""
         outer_ring = mpatches.Circle(
             (0, 0), s_o, fill=False,
-            edgecolor='#cc3333', linewidth=1.2, linestyle='--', zorder=5
+            edgecolor=theme.DANGER, linewidth=1.2, linestyle='--', zorder=5
         )
         ax.add_patch(outer_ring)
 
         if itype in ('annular', 'quadrupole', 'quasar', 'dipole'):
             inner_ring = mpatches.Circle(
                 (0, 0), s_i, fill=False,
-                edgecolor='#3366cc', linewidth=1.2, linestyle='--', zorder=5
+                edgecolor=theme.ACCENT, linewidth=1.2, linestyle='--', zorder=5
             )
             ax.add_patch(inner_ring)
 
@@ -450,12 +451,12 @@ class SourceDialog(QDialog):
 
         # Color map per illumination type
         fill_colors = {
-            'circular':   '#4e79a7',
-            'annular':    '#4e79a7',
-            'quadrupole': '#f28e2b',
-            'quasar':     '#e15759',
-            'dipole':     '#b07aa1',
-            'freeform':   '#59a14f',
+            'circular':   theme.PLOT_COLORS[0],
+            'annular':    theme.PLOT_COLORS[0],
+            'quadrupole': theme.PLOT_COLORS[2],
+            'quasar':     theme.PLOT_COLORS[3],
+            'dipole':     '#9C27B0',
+            'freeform':   theme.SUCCESS,
         }
         fill_color = fill_colors.get(itype, '#4e79a7')
 
@@ -480,7 +481,7 @@ class SourceDialog(QDialog):
 
         # NA boundary
         ax.add_patch(mpatches.Circle(
-            (0, 0), 1.0, fill=False, edgecolor='#222222', linewidth=1.8
+            (0, 0), 1.0, fill=False, edgecolor=theme.TEXT_PRIMARY, linewidth=1.8
         ))
 
         # Filled illumination region
