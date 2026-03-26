@@ -131,6 +131,13 @@ class SimulationPipeline:
             if flare_frac is not None and result.euv_mode:
                 from core.euv_mask import EUVFlare
                 aerial_image = EUVFlare(flare_fraction=flare_frac).apply(aerial_image)
+            # EUV shot noise
+            if result.euv_mode and euv_cfg.get('shot_noise_enabled', False):
+                from core.euv_mask import EUVStochasticModel
+                photons_per_nm2 = euv_cfg.get('photons_per_nm2', 10.0)
+                domain_nm = config.get('simulation', {}).get('domain_size_nm', 2000.0)
+                stoch = EUVStochasticModel(photons_per_nm2=photons_per_nm2, domain_size_nm=domain_nm)
+                aerial_image = stoch.add_shot_noise(aerial_image)
             # Apply film stack TMM correction if provided
             film_stack_tmm = config.get('_film_stack')
             if film_stack_tmm is not None:

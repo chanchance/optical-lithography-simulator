@@ -109,6 +109,9 @@ class HopkinsTCC:
         except ImportError:
             _, sigma, Vh = np.linalg.svd(B, full_matrices=False)
 
+        # Store all eigenvalues for accurate energy fraction computation.
+        self._all_eigenvalues = sigma**2
+
         # Keep top n_kernels singular values/vectors.
         # SVD already returns sigma in descending order — no sort needed.
         n_keep = min(n_sv, len(sigma))
@@ -166,6 +169,8 @@ class HopkinsTCC:
         """Fraction of TCC energy captured by stored kernels (0-1)."""
         if self.eigenvalues is None:
             return 0.0
-        # Full TCC trace = Σ λ_i for all i; we only know top n_kernels
-        # Report relative energy within stored kernels (always 1.0 if all kept)
-        return 1.0  # relative to stored kernels
+        if not hasattr(self, '_all_eigenvalues'):
+            return 1.0
+        kept_energy = float(np.sum(self.eigenvalues**2))
+        total_energy = float(np.sum(self._all_eigenvalues**2))
+        return kept_energy / total_energy if total_energy > 0 else 1.0

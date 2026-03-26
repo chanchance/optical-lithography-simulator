@@ -286,12 +286,21 @@ class DipoleSource(BaseSource):
         KX_d, KY_d = np.meshgrid(lin, lin, indexing='ij')
         in_disc = (KX_d**2 + KY_d**2) <= r_disc**2
 
+        half_angle = np.radians(self.opening_angle_deg / 2.0)
+
         all_points = []
         for cx, cy in pole_centers:
+            pole_angle = np.arctan2(cy, cx)
             kx_pts = cx + KX_d[in_disc]
             ky_pts = cy + KY_d[in_disc]
             for kx, ky in zip(kx_pts.ravel(), ky_pts.ravel()):
-                all_points.append((float(kx), float(ky)))
+                pt_angle = np.arctan2(ky, kx)
+                diff = abs(pt_angle - pole_angle)
+                # Wrap to [-pi, pi]
+                if diff > np.pi:
+                    diff = 2 * np.pi - diff
+                if diff <= half_angle:
+                    all_points.append((float(kx), float(ky)))
 
         n_pts = max(1, len(all_points))
         weight = 1.0 / n_pts
@@ -299,7 +308,7 @@ class DipoleSource(BaseSource):
                 for p in all_points]
 
 
-class FreeformSource:
+class FreeformSource(BaseSource):
     """
     Freeform pupil-plane illumination source.
     Defined by a 2D intensity map on the normalized pupil coordinate grid.
@@ -308,10 +317,31 @@ class FreeformSource:
     Ref: Pistor Ch.4.2 — arbitrary source shapes for source optimization
     """
 
-    def __init__(self, pupil_size: int = 64):
+    def __init__(self, pupil_size: int = 64, NA: float = 1.0,
+                 wavelength_nm: float = 193.0, N_points: int = 16,
+                 polarization: str = 'unpolarized'):
+        super().__init__(NA, wavelength_nm, N_points, polarization)
         self.pupil_size = pupil_size
         self._map = np.zeros((pupil_size, pupil_size), dtype=np.float64)
         self._sigma_max = 1.0
+
+    def _compute_points(self) -> List[SourcePoint]:
+        N = self.pupil_size
+        lin = np.linspace(-self._sigma_max, self._sigma_max, N)
+        KX, KY = np.meshgrid(lin, lin, indexing='ij')
+        mask = (KX**2 + KY**2) <= 1.0
+        intensities = self._map * mask
+        total = intensities.sum()
+        if total <= 0:
+            return [SourcePoint(0.0, 0.0, 1.0, self.polarization)]
+        weights = intensities / total
+        points = []
+        for ix in range(N):
+            for iy in range(N):
+                w = float(weights[ix, iy])
+                if w > 1e-8:
+                    points.append(SourcePoint(float(KX[ix, iy]), float(KY[ix, iy]), w, self.polarization))
+        return points if points else [SourcePoint(0.0, 0.0, 1.0, self.polarization)]
 
     @classmethod
     def from_array(cls, arr: np.ndarray, sigma_max: float = 1.0) -> 'FreeformSource':
@@ -355,21 +385,6 @@ class FreeformSource:
         # Apply sigma_max circular aperture
         arr[r > sigma_max] = 0.0
         return cls.from_array(arr, sigma_max)
-
-    def get_source_points(self) -> List[SourcePoint]:
-        """
-        Return list of SourcePoint objects for Abbe integration.
-        Compatible with BaseSource / FourierOpticsEngine interface.
-        Only returns points with intensity > threshold.
-        """
-        sx, sy, weights = self.get_source_arrays()
-        total = np.sum(weights)
-        if total > 0:
-            weights = weights / total
-        return [SourcePoint(kx=float(sx[i]), ky=float(sy[i]),
-                            weight=float(weights[i]),
-                            polarization='both')
-                for i in range(len(sx))]
 
     def get_source_arrays(self) -> tuple:
         """
