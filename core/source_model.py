@@ -454,16 +454,31 @@ def create_source(config: dict):
                 "got inner={}, outer={}".format(sigma_inner, sigma_outer))
         return AnnularSource(NA, sigma_outer, sigma_inner, wl, N, pol)
     elif source_type == 'quadrupole':
-        sigma_c = illum.get('sigma_c', 0.15)
-        sigma_r = illum.get('sigma_r', 0.30)
+        # Accept sigma_c/sigma_r directly, or derive from sigma_outer/sigma_inner
+        # (the parameter panel and source dialog emit sigma_outer/sigma_inner).
+        # Geometric mapping: pole center = midpoint, pole radius = half-width.
+        if 'sigma_c' in illum or 'sigma_r' in illum:
+            sigma_c = illum.get('sigma_c', 0.15)
+            sigma_r = illum.get('sigma_r', 0.30)
+        else:
+            s_o = illum.get('sigma_outer', 0.85)
+            s_i = illum.get('sigma_inner', 0.55)
+            sigma_r = (s_o + s_i) / 2.0
+            sigma_c = (s_o - s_i) / 2.0
         if sigma_c <= 0 or sigma_r <= 0:
             raise ValueError(
                 "sigma_c and sigma_r must be positive, got c={}, r={}".format(
                     sigma_c, sigma_r))
         return QuadrupoleSource(NA, sigma_c, sigma_r, wl, N, pol)
     elif source_type == 'quasar':
-        sigma_c = illum.get('sigma_c', 0.15)
-        sigma_r = illum.get('sigma_r', 0.30)
+        if 'sigma_c' in illum or 'sigma_r' in illum:
+            sigma_c = illum.get('sigma_c', 0.15)
+            sigma_r = illum.get('sigma_r', 0.30)
+        else:
+            s_o = illum.get('sigma_outer', 0.85)
+            s_i = illum.get('sigma_inner', 0.55)
+            sigma_r = (s_o + s_i) / 2.0
+            sigma_c = (s_o - s_i) / 2.0
         if sigma_c <= 0 or sigma_r <= 0:
             raise ValueError(
                 "sigma_c and sigma_r must be positive, got c={}, r={}".format(
