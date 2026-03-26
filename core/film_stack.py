@@ -56,7 +56,10 @@ class Layer:
     k: float = 0.0          # extinction coefficient
 
     def complex_n(self) -> complex:
-        return complex(self.n, -self.k)
+        # exp(-iωt) convention: ñ = n + ik  (positive imaginary part for absorption).
+        # kz = sqrt((ñ·k0)² − kx²) then has Im(kz) > 0, so exp(i·kz·z) decays
+        # in absorbing media as required.  Using n-ik would make it grow.
+        return complex(self.n, self.k)
 
 
 @dataclass
