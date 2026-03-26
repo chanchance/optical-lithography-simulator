@@ -62,7 +62,7 @@ class DillResist(BaseResist):
             return M
         px_per_nm = len(M) / self.domain_size_nm
         sigma_px = self.peb_sigma_nm * px_per_nm
-        return gaussian_filter(M, sigma=sigma_px)
+        return gaussian_filter(M, sigma=sigma_px, mode='nearest')
 
     def develop(self, latent_image, threshold=0.5):
         M_peb = self._peb_diffusion(latent_image)
@@ -89,7 +89,7 @@ class CAResist(BaseResist):
         # PEB diffusion of acid
         px_per_nm = len(latent_image) / self.domain_size_nm
         sigma_px = self.peb_sigma_nm * px_per_nm
-        acid_diffused = gaussian_filter(latent_image, sigma=max(0.1, sigma_px))
+        acid_diffused = gaussian_filter(latent_image, sigma=max(0.1, sigma_px), mode='nearest')
         # Deprotection (logistic) — sigmoid midpoint is at acid = exposure_threshold.
         # The natural binary development boundary is at deprotection = 0.5 (sigmoid
         # midpoint), which exactly corresponds to acid = exposure_threshold.

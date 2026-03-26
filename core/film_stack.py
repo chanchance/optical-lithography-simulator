@@ -204,7 +204,7 @@ class TransferMatrixEngine:
         k0 = 2.0 * np.pi / wavelength_nm
         kz = np.sqrt((n_complex * k0) ** 2 - kx ** 2 + 0j)
         # Choose root with Re(kz) >= 0; for purely evanescent choose Im(kz) >= 0
-        if kz.real < 0 or (kz.real == 0.0 and kz.imag < 0):
+        if kz.real < 0 or (abs(kz.real) < 1e-15 and kz.imag < 0):
             kz = -kz
         return kz
 
@@ -228,11 +228,19 @@ class TransferMatrixEngine:
         ], dtype=complex)
 
     def _propagation_matrix(self, kz: complex, thickness_nm: float) -> np.ndarray:
-        """2×2 propagation matrix P for a film of given thickness."""
+        """2×2 propagation matrix P for a film of given thickness.
+
+        In the transfer matrix [A+_0, A-_0] = M · [A+_sub, 0], the propagation
+        matrix relates amplitudes at the left boundary to those at the right:
+            A+(z=0) = exp(-i·kz·d) · A+(z=d)   (forward wave attenuates left→right)
+            A-(z=0) = exp(+i·kz·d) · A-(z=d)   (backward wave attenuates right→left)
+        For absorbing media Im(kz)>0, so |exp(-i·kz·d)|<1 for both directions.
+        Using exp(+i·phi) for A+ would give |r|>1 for lossy layers (non-physical).
+        """
         phi = kz * thickness_nm
         return np.array([
-            [np.exp(1j * phi), 0.0],
-            [0.0, np.exp(-1j * phi)],
+            [np.exp(-1j * phi), 0.0],
+            [0.0, np.exp(1j * phi)],
         ], dtype=complex)
 
     # ------------------------------------------------------------------

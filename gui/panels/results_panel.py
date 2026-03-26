@@ -596,7 +596,7 @@ class ResultsPanel(QWidget):
 
         im = ax.imshow(
             wf_waves, cmap='RdBu_r', origin='lower',
-            extent=[-1, 1, -1, 1], aspect='equal',
+            extent=[-1, 1, -1, 1], aspect='auto',
             vmin=-vmax, vmax=vmax,
         )
         self._cb_wf = self.figure.colorbar(im, ax=ax, fraction=0.035, shrink=0.85, pad=0.03)
@@ -806,8 +806,7 @@ class ResultsPanel(QWidget):
                 self, "Export Results", "results." + fmt, ext_filter)
             if path:
                 try:
-                    self.figure.savefig(path, dpi=150, bbox_inches='tight',
-                                        facecolor=theme.BG_PRIMARY)
+                    self.figure.savefig(path, dpi=150, facecolor=theme.BG_PRIMARY)
                 except Exception as e:
                     QMessageBox.warning(self, "Export Error", str(e))
             return

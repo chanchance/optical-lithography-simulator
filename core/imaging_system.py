@@ -98,11 +98,10 @@ class ImagingSystem:
         sim.grid.sigma = sigma
         sim._precompute_update_coefficients()
 
-        # FDTD engine calls on_progress(fraction: float), but callers use
-        # on_progress(step_name: str, pct: int).  Wrap to avoid TypeError.
+        # Pass progress fraction directly — callers wrap to their own format.
         def _fdtd_progress(frac):
             if on_progress:
-                on_progress('FDTD', int(frac * 100))
+                on_progress(frac)
 
         fields = sim.run_simulation(_fdtd_progress)
 

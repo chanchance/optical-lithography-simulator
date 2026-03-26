@@ -315,7 +315,16 @@ class StackDialog(QDialog):
                     for a in angles]
             R_tm = [abs(self._engine.reflectance(self._stack, a, 'tm')) ** 2
                     for a in angles]
-        except Exception:
+        except Exception as exc:
+            ax = self._ax
+            ax.clear()
+            ax.set_facecolor(theme.BG_SECONDARY)
+            ax.text(0.5, 0.5, f"Preview error:\n{exc}",
+                    ha='center', va='center', fontsize=9,
+                    color=theme.DANGER, transform=ax.transAxes, wrap=True)
+            ax.set_axis_off()
+            self._fig.tight_layout()
+            self._canvas.draw()
             return
 
         ax = self._ax
