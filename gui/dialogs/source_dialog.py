@@ -45,7 +45,7 @@ class SourceDialog(QDialog):
 
     def _load_from_config(self, config):
         """Initialize controls from an existing config dict."""
-        litho = config.get('lithography', config)
+        litho = config.get('lithography', {})
         illum = litho.get('illumination', {})
         illum_type = illum.get('type', 'annular').capitalize()
         # Map config keys to combo items

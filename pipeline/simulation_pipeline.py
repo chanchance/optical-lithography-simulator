@@ -86,7 +86,7 @@ class SimulationPipeline:
             if rcwa_cfg.get('enabled', False):
                 from core.rcwa import RCWAEngine, RCWAParams
                 domain_nm = config.get('simulation', {}).get('domain_size_nm', 2000.0)
-                wavelength_nm = config.get('lithography', config).get('wavelength_nm', 193.0)
+                wavelength_nm = config.get('lithography', {}).get('wavelength_nm', 193.0)
                 rcwa_params = RCWAParams(
                     wavelength_nm=wavelength_nm,
                     n_orders=rcwa_cfg.get('n_orders', 11),
@@ -97,7 +97,7 @@ class SimulationPipeline:
                 result.near_field_applied = True
 
             result.mask_grid = mask_grid
-            litho_cfg = config.get('lithography', config)
+            litho_cfg = config.get('lithography', {})
             wl_check = float(litho_cfg.get('wavelength_nm', 193.0))
             result.euv_mode = abs(wl_check - 13.5) < 0.5
             progress('Layout loaded', 20)
@@ -185,7 +185,7 @@ class SimulationPipeline:
         mask_grid = np.abs(mask.transmission).astype(np.float64)
 
         # Apply EUV multilayer mask model when wavelength is 13.5nm
-        litho_cfg = config.get('lithography', config)
+        litho_cfg = config.get('lithography', {})
         if abs(float(litho_cfg.get('wavelength_nm', 193.0)) - 13.5) < 0.5:
             from core.euv_mask import EUVMultilayerMask, EUVFlare
             euv_mask = EUVMultilayerMask()
@@ -201,7 +201,7 @@ class SimulationPipeline:
     def _step_create_source(self, config: Dict):
         """Create illumination source from config."""
         from core.source_model import create_source
-        litho = config.get('lithography', config)
+        litho = config.get('lithography', {})
         params = {
             'NA': litho.get('NA', 0.93),
             'wavelength_nm': litho.get('wavelength_nm', 193.0),
@@ -216,7 +216,7 @@ class SimulationPipeline:
         """Compute aerial image using Fourier optics."""
         from core.fourier_optics import FourierOpticsEngine
 
-        litho = config.get('lithography', config)
+        litho = config.get('lithography', {})
         sim_cfg = config.get('simulation', {})
 
         engine_params = {
@@ -263,7 +263,7 @@ class SimulationPipeline:
 
         # Simple NILS-based DOF estimate: DOF ≈ λ/(NA² * NILS) * k2
         # where k2 ≈ 0.5 is a process factor
-        litho_cfg2 = config.get('lithography', config)
+        litho_cfg2 = config.get('lithography', {})
         wl = float(litho_cfg2.get('wavelength_nm', 193.0))
         na = float(litho_cfg2.get('NA', 0.93))
         nils = metrics_obj.nils

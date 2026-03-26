@@ -21,7 +21,7 @@ class ImagingSystem:
 
     def __init__(self, config: Dict):
         self.config = config
-        litho = config.get('lithography', config)
+        litho = config.get('lithography', {})
         sim_cfg = config.get('simulation', {})
 
         # Flatten config for engines
