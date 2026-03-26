@@ -174,6 +174,7 @@ class SourceDialog(QDialog):
         self._freeform_expr.setText("(r > 0.3) & (r < 0.6)")
         apply_btn = QPushButton("Apply")
         apply_btn.setFixedWidth(54)
+        apply_btn.setObjectName("secondary")
         apply_btn.clicked.connect(self._apply_freeform_expr)
         expr_row.addWidget(expr_lbl)
         expr_row.addWidget(self._freeform_expr, stretch=1)
@@ -240,6 +241,7 @@ class SourceDialog(QDialog):
         right_layout.setContentsMargins(4, 4, 4, 4)
         right_layout.setSpacing(0)
 
+        theme.apply_mpl_theme()
         self.figure = Figure(figsize=(5, 6), dpi=96)
         self.figure.subplots_adjust(hspace=0.35)
         self.ax = self.figure.add_subplot(211)       # pupil
@@ -255,6 +257,9 @@ class SourceDialog(QDialog):
 
         bb = QDialogButtonBox(QDialogButtonBox.Ok)
         bb.accepted.connect(self.accept)
+        ok_btn = bb.button(QDialogButtonBox.Ok)
+        if ok_btn:
+            ok_btn.setProperty("class", "primary")
         root_layout.addWidget(bb)
 
         # Internal freeform state

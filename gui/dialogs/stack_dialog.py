@@ -139,6 +139,7 @@ class StackDialog(QDialog):
         if _HAS_MPL:
             theme.apply_mpl_theme()
             self._fig = Figure(figsize=(4, 2.2), dpi=theme.MPL_DPI)
+            self._fig.patch.set_facecolor(theme.BG_PRIMARY)
             self._ax = self._fig.add_subplot(111)
             self._canvas = FigureCanvas(self._fig)
             self._canvas.setMinimumHeight(160)
@@ -294,6 +295,7 @@ class StackDialog(QDialog):
     def _draw_empty_preview(self):
         ax = self._ax
         ax.clear()
+        ax.set_facecolor(theme.BG_SECONDARY)
         ax.set_xlabel("Angle (°)", fontsize=theme.MPL_LABEL)
         ax.set_ylabel("Reflectance", fontsize=theme.MPL_LABEL)
         ax.set_title("Reflectance vs Angle  [click Update Preview]",
@@ -318,6 +320,7 @@ class StackDialog(QDialog):
 
         ax = self._ax
         ax.clear()
+        ax.set_facecolor(theme.BG_SECONDARY)
         ax.plot(angles, R_te, color=theme.ACCENT, lw=1.5, label='TE')
         ax.plot(angles, R_tm, color=theme.WARNING, lw=1.5,
                 linestyle='--', label='TM')
