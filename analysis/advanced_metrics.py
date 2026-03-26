@@ -2,6 +2,7 @@
 Advanced lithography metrics: MEEF, Bossung curves, Focus-Exposure Matrix, LER.
 Complements aerial_image_analysis.py with process-window-level analysis.
 """
+import copy
 import numpy as np
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple, Callable
@@ -20,6 +21,25 @@ class MEEF:
     """
     Mask Error Enhancement Factor.
     MEEF = (dCD_wafer / dCD_mask) * M  where M = demagnification (4x)
+
+    Usage via factory (recommended)::
+
+        from pipeline.simulation_pipeline import SimulationPipeline
+        meef = MEEF.from_pipeline(SimulationPipeline(), nominal_cd_nm=100.0)
+        result = meef.compute(config, mask_delta_nm=10.0)
+        # result.meef is the MEEF value; typical ArF range 1.0–3.5
+
+    Usage with custom pipeline_fn::
+
+        def pipeline_fn(cfg, mask_delta_nm):
+            cfg2 = copy.deepcopy(cfg)
+            # apply mask_delta_nm as dose perturbation proxy
+            nominal_cd = cfg2.get('_nominal_cd_nm', 100.0)
+            cfg2.setdefault('lithography', {})['dose_factor'] = 1.0 + mask_delta_nm / nominal_cd
+            return SimulationPipeline().run(cfg2).cd_nm
+
+        meef = MEEF(pipeline_fn)
+        result = meef.compute(config, mask_delta_nm=10.0)
     """
     magnification: float = 4.0
 
@@ -27,9 +47,57 @@ class MEEF:
         """
         pipeline_fn: callable(config, mask_delta_nm) → cd_nm
         Runs simulation with ±delta mask CD change, measures wafer CD change.
+        The callable MUST vary the simulation based on mask_delta_nm (0.0 = nominal).
+        Use MEEF.from_pipeline() to get a correctly-wired callable automatically.
         """
         self.pipeline_fn = pipeline_fn
         self.magnification = magnification
+
+    @classmethod
+    def from_pipeline(cls, pipeline, nominal_cd_nm: float = 100.0,
+                      magnification: float = 4.0) -> 'MEEF':
+        """
+        Factory: build MEEF from a SimulationPipeline instance.
+
+        Mask CD perturbation is implemented as a dose_factor shift:
+            dose_factor = 1.0 + mask_delta_nm / nominal_cd_nm
+        This approximates a ±delta mask CD change at the aerial-image level.
+
+        Args:
+            pipeline: SimulationPipeline instance (or any object with .run(config)).
+            nominal_cd_nm: Reference CD in nm used to convert mask delta to dose
+                           fraction. Use the expected target CD for the feature.
+            magnification: Mask demagnification factor (default 4x for ArF/EUV).
+
+        Smoke test::
+
+            from pipeline.simulation_pipeline import SimulationPipeline
+            meef = MEEF.from_pipeline(SimulationPipeline(), nominal_cd_nm=100.0)
+            config = {
+                'lithography': {'wavelength_nm': 193.0, 'NA': 0.93, 'defocus_nm': 0.0,
+                                 'illumination': {'type': 'annular',
+                                                  'sigma_outer': 0.85, 'sigma_inner': 0.55}},
+                'simulation': {'grid_size': 32, 'domain_size_nm': 1000.0},
+                'resist': {'model': 'threshold', 'threshold': 0.30},
+                'analysis': {'cd_threshold': 0.30},
+            }
+            result = meef.compute(config, mask_delta_nm=10.0)
+            assert isinstance(result.meef, float)
+            assert result.meef >= 0.0
+        """
+        ref_cd = float(nominal_cd_nm) if nominal_cd_nm and nominal_cd_nm > 0 else 100.0
+
+        def _pipeline_fn(config: dict, mask_delta_nm: float) -> float:
+            cfg = copy.deepcopy(config)
+            litho = cfg.setdefault('lithography', {})
+            # Translate mask CD offset to a dose_factor perturbation:
+            # a larger mask feature (positive delta) increases effective dose.
+            base_dose = litho.get('dose_factor', 1.0)
+            litho['dose_factor'] = base_dose + mask_delta_nm / ref_cd
+            r = pipeline.run(cfg)
+            return r.cd_nm
+
+        return cls(_pipeline_fn, magnification=magnification)
 
     def compute(self, config: dict, mask_delta_nm: float = 1.0) -> MEEFResult:
         cd_nominal = self.pipeline_fn(config, 0.0)
