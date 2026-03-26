@@ -79,10 +79,20 @@ class ThinScalarMask:
                                           1.0 + 0j,
                                           att_phasor)
         elif self.mask_type in ('altpsm', 'alt_psm'):
-            # Alternating PSM: clear regions alternate phase
-            self._transmission = np.where(pattern > 0.5,
-                                          np.exp(1j * self.phase_shift),
-                                          0.0 + 0j)
+            # Alternating PSM: adjacent clear regions get alternating phases
+            # (+1 vs exp(iπ)=-1).  Applying the same phase to all clear regions
+            # (the former code) produces no destructive interference at edges.
+            # Label connected clear regions and alternate phases by region index.
+            from scipy import ndimage
+            binary = pattern > 0.5
+            labeled, n_features = ndimage.label(binary)
+            transmission = np.zeros_like(pattern, dtype=np.complex128)
+            for i in range(1, n_features + 1):
+                region = labeled == i
+                # Odd-indexed regions: phase 0 (t = +1); even: phase π (t = -1)
+                phase = 1.0 + 0j if (i % 2 == 1) else np.exp(1j * self.phase_shift)
+                transmission[region] = phase
+            self._transmission = transmission
         else:
             self._transmission = pattern.astype(np.complex128)
 
