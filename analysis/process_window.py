@@ -3,7 +3,7 @@ Process window analysis for optical lithography.
 Computes Exposure Latitude (EL) and Depth of Focus (DOF).
 """
 import numpy as np
-from typing import List, Tuple, Optional, Dict
+from typing import Optional
 from dataclasses import dataclass
 
 # NumPy 2.0 renamed np.trapz → np.trapezoid; keep both supported
