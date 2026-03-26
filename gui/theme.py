@@ -16,14 +16,20 @@ WARNING        = "#FF9800"
 
 # ── Bossung/FEM color palette (5 dose levels) ──────────────────────────────
 BOSSUNG_COLORS = ['#3182F6', '#00C853', '#FF9800', '#F44336', '#9C27B0']
+# Alias for generic multi-line plots
+PLOT_COLORS = BOSSUNG_COLORS
 
 # ── Matplotlib ─────────────────────────────────────────────────────────────
 MPL_DPI    = 96
-MPL_TITLE  = 11
-MPL_LABEL  = 9
-MPL_TICK   = 8
-MPL_ANNOT  = 7
-MPL_LEGEND = 7
+MPL_TITLE  = 12
+MPL_LABEL  = 10
+MPL_TICK   = 9
+MPL_ANNOT  = 8
+MPL_LEGEND = 8
+MPL_GRID           = "#EAECEF"
+MPL_COLORMAP_AERIAL = 'inferno'
+MPL_COLORMAP_FEM   = 'plasma'
+MPL_COLORMAP_WF    = 'RdBu_r'
 
 # ── Spacing (px) ───────────────────────────────────────────────────────────
 SP_XS = 4
@@ -329,6 +335,17 @@ def apply_mpl_theme() -> None:
             "figure.dpi":        MPL_DPI,
             "savefig.dpi":       MPL_DPI,
             "font.family":       ["DejaVu Sans", "sans-serif"],
+            "axes.grid":             True,
+            "grid.color":            "#EAECEF",
+            "grid.alpha":            0.6,
+            "grid.linewidth":        0.5,
+            "axes.grid.which":       "major",
+            "axes.axisbelow":        True,
+            "lines.linewidth":       1.5,
+            "lines.solid_capstyle":  "round",
+            "patch.linewidth":       0.8,
+            "xtick.minor.visible":   False,
+            "ytick.minor.visible":   False,
         })
     except Exception:
         pass
