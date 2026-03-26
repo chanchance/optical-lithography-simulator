@@ -44,7 +44,9 @@ class FieldViewer:
         else:
             data = field_array
 
-        ny, nx = data.shape[:2] if data.ndim >= 2 else (1, len(data))
+        # FDTD arrays use (nx, ny, nz) convention: first axis is x, second is y.
+        # Assign accordingly so the extent calculation is correct.
+        nx, ny = data.shape[:2] if data.ndim >= 2 else (len(data), 1)
 
         vmax = np.max(np.abs(data))
         if vmax < 1e-30:
@@ -96,7 +98,7 @@ class FieldViewer:
                     pad_to(np.abs(Ey)**2, shape) + \
                     pad_to(np.abs(Ez)**2, shape)
 
-        ny, nx = shape
+        nx, ny = shape  # shape[0] = max first dims = x-dimension
         extent_nm = [0, nx * self.dx_nm, 0, ny * self.dx_nm]
 
         im = ax.imshow(intensity.T, origin='lower', cmap='hot',
