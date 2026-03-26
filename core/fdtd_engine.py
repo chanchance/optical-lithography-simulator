@@ -147,7 +147,7 @@ class FDTDSimulator:
 
         g._alpha = (2.0 * eps - sigma * self.dt) / (2.0 * eps + sigma * self.dt)
         g._beta = (self.dt / self.dx) * (2.0 / (2.0 * eps + sigma * self.dt))
-        g._gamma = np.full_like(eps, self.dt / (mu[0, 0, 0] * self.dx))
+        g._gamma = self.dt / (mu * self.dx)
 
     def _update_E_fields(self) -> None:
         """
@@ -206,29 +206,60 @@ class FDTDSimulator:
         """
         Update H fields using Yee equations (Pistor Eq 1-9).
         H^{n+1/2} = H^{n-1/2} + gamma * (curl E)
+
+        gamma is (nx, ny, nz) at cell centers.  H-field components live
+        at face centres of the dual grid and their shapes differ:
+          Hx(nx+1, ny, nz), Hy(nx, ny+1, nz), Hz(nx, ny, nz+1).
+        Average gamma to H-positions along the staggered dimension.
         """
         g = self.grid
-        gamma = g._gamma[0, 0, 0]  # Uniform mu assumed
+        gamma = g._gamma  # (nx, ny, nz)
 
-        # Hx update: Hx[i+1/2,j,k]
-        # dEy/dz - dEz/dy
-        g.Hx[:, :, :] += gamma * (
-            (g.Ey[:, :, 1:] - g.Ey[:, :, :-1]) / self.dz -
-            (g.Ez[:, 1:, :] - g.Ez[:, :-1, :]) / self.dy
+        # Hx at (i+1/2, j, k) — average gamma along x
+        # gamma_hx shape: (nx-1, ny, nz) -> use for interior Hx[1:-1,:,:]
+        gamma_hx = 0.5 * (gamma[:-1, :, :] + gamma[1:, :, :])
+        g.Hx[1:-1, :, :] += gamma_hx * (
+            (g.Ey[1:-1, :, 1:] - g.Ey[1:-1, :, :-1]) / self.dz -
+            (g.Ez[1:-1, 1:, :] - g.Ez[1:-1, :-1, :]) / self.dy
+        )
+        # Boundary Hx rows use nearest cell gamma
+        g.Hx[0, :, :] += gamma[0, :, :] * (
+            (g.Ey[0, :, 1:] - g.Ey[0, :, :-1]) / self.dz -
+            (g.Ez[0, 1:, :] - g.Ez[0, :-1, :]) / self.dy
+        )
+        g.Hx[-1, :, :] += gamma[-1, :, :] * (
+            (g.Ey[-1, :, 1:] - g.Ey[-1, :, :-1]) / self.dz -
+            (g.Ez[-1, 1:, :] - g.Ez[-1, :-1, :]) / self.dy
         )
 
-        # Hy update: Hy[i,j+1/2,k]
-        # dEz/dx - dEx/dz
-        g.Hy[:, :, :] += gamma * (
-            (g.Ez[1:, :, :] - g.Ez[:-1, :, :]) / self.dx -
-            (g.Ex[:, :, 1:] - g.Ex[:, :, :-1]) / self.dz
+        # Hy at (i, j+1/2, k) — average gamma along y
+        gamma_hy = 0.5 * (gamma[:, :-1, :] + gamma[:, 1:, :])
+        g.Hy[:, 1:-1, :] += gamma_hy * (
+            (g.Ez[1:, 1:-1, :] - g.Ez[:-1, 1:-1, :]) / self.dx -
+            (g.Ex[:, 1:-1, 1:] - g.Ex[:, 1:-1, :-1]) / self.dz
+        )
+        g.Hy[:, 0, :] += gamma[:, 0, :] * (
+            (g.Ez[1:, 0, :] - g.Ez[:-1, 0, :]) / self.dx -
+            (g.Ex[:, 0, 1:] - g.Ex[:, 0, :-1]) / self.dz
+        )
+        g.Hy[:, -1, :] += gamma[:, -1, :] * (
+            (g.Ez[1:, -1, :] - g.Ez[:-1, -1, :]) / self.dx -
+            (g.Ex[:, -1, 1:] - g.Ex[:, -1, :-1]) / self.dz
         )
 
-        # Hz update: Hz[i,j,k+1/2]
-        # dEx/dy - dEy/dx
-        g.Hz[:, :, :] += gamma * (
-            (g.Ex[:, 1:, :] - g.Ex[:, :-1, :]) / self.dy -
-            (g.Ey[1:, :, :] - g.Ey[:-1, :, :]) / self.dx
+        # Hz at (i, j, k+1/2) — average gamma along z
+        gamma_hz = 0.5 * (gamma[:, :, :-1] + gamma[:, :, 1:])
+        g.Hz[:, :, 1:-1] += gamma_hz * (
+            (g.Ex[:, 1:, 1:-1] - g.Ex[:, :-1, 1:-1]) / self.dy -
+            (g.Ey[1:, :, 1:-1] - g.Ey[:-1, :, 1:-1]) / self.dx
+        )
+        g.Hz[:, :, 0] += gamma[:, :, 0] * (
+            (g.Ex[:, 1:, 0] - g.Ex[:, :-1, 0]) / self.dy -
+            (g.Ey[1:, :, 0] - g.Ey[:-1, :, 0]) / self.dx
+        )
+        g.Hz[:, :, -1] += gamma[:, :, -1] * (
+            (g.Ex[:, 1:, -1] - g.Ex[:, :-1, -1]) / self.dy -
+            (g.Ey[1:, :, -1] - g.Ey[:-1, :, -1]) / self.dx
         )
 
     def excite_plane_wave(self, timestep: int, polarization: str = 'TE',
