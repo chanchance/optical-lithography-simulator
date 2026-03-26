@@ -109,11 +109,11 @@ class HopkinsTCC:
         except ImportError:
             _, sigma, Vh = np.linalg.svd(B, full_matrices=False)
 
-        # Keep top n_kernels singular values/vectors
+        # Keep top n_kernels singular values/vectors.
+        # SVD already returns sigma in descending order — no sort needed.
         n_keep = min(n_sv, len(sigma))
-        idx = np.argsort(sigma[:n_keep])[::-1]  # descending order
-        sigma_top = sigma[idx]
-        Vh_top = Vh[idx, :]  # shape (n_keep, n_freq)
+        sigma_top = sigma[:n_keep]
+        Vh_top = Vh[:n_keep, :]  # shape (n_keep, n_freq)
 
         self.eigenvalues = sigma_top**2                           # λ_i = σ_i²
         self.eigenkernels = Vh_top.reshape(n_keep, N, N)          # φ_i(fx,fy)

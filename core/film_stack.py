@@ -119,6 +119,8 @@ def optimize_barc(wavelength_nm: float, n_resist: float, k_resist: float,
         r = engine.reflectance(stack)
         return abs(r) ** 2
 
+    scipy_best_x = None
+    scipy_best_R = float('inf')
     try:
         from scipy.optimize import minimize
 
@@ -126,8 +128,6 @@ def optimize_barc(wavelength_nm: float, n_resist: float, k_resist: float,
             n_b, k_b, t_b = x
             return substrate_reflectance(n_b, k_b, t_b)
 
-        best_result = None
-        best_R = float('inf')
         # Multi-start to avoid local minima
         for n0 in np.linspace(n_range[0], n_range[1], 3):
             for k0 in np.linspace(k_range[0], k_range[1], 3):
@@ -138,38 +138,36 @@ def optimize_barc(wavelength_nm: float, n_resist: float, k_resist: float,
                         bounds=[n_range, k_range, thickness_range],
                         method='L-BFGS-B',
                     )
-                    if res.fun < best_R:
-                        best_R = res.fun
-                        best_result = res.x
+                    if res.fun < scipy_best_R:
+                        scipy_best_R = res.fun
+                        scipy_best_x = res.x
                 except Exception:
                     pass
-
-        if best_result is None:
-            # All minimize calls failed; fall through to brute-force path
-            raise ImportError("scipy.optimize.minimize failed for all starting points")
-
-        n_opt, k_opt, t_opt = best_result
-        return {'n': float(n_opt), 'k': float(k_opt),
-                'thickness_nm': float(t_opt), 'reflectance': float(best_R)}
-
     except ImportError:
-        # Brute-force grid search fallback
-        n_vals = np.linspace(n_range[0], n_range[1], 15)
-        k_vals = np.linspace(k_range[0], k_range[1], 15)
-        t_vals = np.linspace(thickness_range[0], thickness_range[1], 20)
+        pass  # scipy not available; fall through to brute-force
 
-        best_R = float('inf')
-        best = (n_vals[0], k_vals[0], t_vals[0])
-        for n_b in n_vals:
-            for k_b in k_vals:
-                for t_b in t_vals:
-                    R = substrate_reflectance(n_b, k_b, t_b)
-                    if R < best_R:
-                        best_R = R
-                        best = (n_b, k_b, t_b)
+    if scipy_best_x is not None:
+        n_opt, k_opt, t_opt = scipy_best_x
+        return {'n': float(n_opt), 'k': float(k_opt),
+                'thickness_nm': float(t_opt), 'reflectance': float(scipy_best_R)}
 
-        return {'n': float(best[0]), 'k': float(best[1]),
-                'thickness_nm': float(best[2]), 'reflectance': float(best_R)}
+    # Brute-force grid search fallback (no scipy, or all minimize calls failed)
+    n_vals = np.linspace(n_range[0], n_range[1], 15)
+    k_vals = np.linspace(k_range[0], k_range[1], 15)
+    t_vals = np.linspace(thickness_range[0], thickness_range[1], 20)
+
+    best_R = float('inf')
+    best = (n_vals[0], k_vals[0], t_vals[0])
+    for n_b in n_vals:
+        for k_b in k_vals:
+            for t_b in t_vals:
+                R = substrate_reflectance(n_b, k_b, t_b)
+                if R < best_R:
+                    best_R = R
+                    best = (n_b, k_b, t_b)
+
+    return {'n': float(best[0]), 'k': float(best[1]),
+            'thickness_nm': float(best[2]), 'reflectance': float(best_R)}
 
 
 class TransferMatrixEngine:
