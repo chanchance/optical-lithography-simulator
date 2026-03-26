@@ -62,7 +62,7 @@ class VectorImagingEngine:
         self.dx_nm = self.domain_size_nm / self.grid_size
 
         # Reuse ZernikeAberrations from fourier_optics if available
-        from .fourier_optics import ZernikeAberrations, ProjectionOptic
+        from .fourier_optics import ProjectionOptic
         self.projection_optic = ProjectionOptic(
             self.NA, self.wavelength_nm,
             aberrations=params.get('aberrations')

@@ -407,7 +407,7 @@ def create_source(config: dict):
     Raises:
         ValueError: on invalid parameters or unknown source type
     """
-    illum = config.get('illumination', config)
+    illum = config.get('illumination', {})
     source_type = illum.get('type', 'circular').lower()
     NA = config.get('NA', 0.93)
     wl = config.get('wavelength_nm', 193.0)
