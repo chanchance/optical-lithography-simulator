@@ -148,7 +148,7 @@ class ResultsPanel(QWidget):
     # Theme helpers
     # ------------------------------------------------------------------
 
-    def _style_ax(self, ax, title):
+    def _style_ax(self, ax, title, image_panel=False):
         ax.set_facecolor(theme.BG_SECONDARY)
         ax.set_title(title, fontsize=theme.MPL_TITLE, fontweight='600',
                      color=theme.TEXT_PRIMARY, pad=6)
@@ -159,6 +159,10 @@ class ResultsPanel(QWidget):
         ax.spines['bottom'].set_color(theme.BORDER)
         for label in ax.get_xticklabels() + ax.get_yticklabels():
             label.set_color(theme.TEXT_TERTIARY)
+        if image_panel:
+            ax.grid(False)
+        else:
+            ax.grid(True, color=theme.MPL_GRID, linewidth=0.5, alpha=0.7, zorder=0)
 
     # ------------------------------------------------------------------
     # Gauge logic
@@ -240,16 +244,16 @@ class ResultsPanel(QWidget):
             return "x (px)", "y (px)", [0, n, 0, m]
 
     def _clear_plots(self):
-        for ax, title in [
-            (self.ax_aerial,  "Aerial Image"),
-            (self.ax_mask,    "Mask"),
-            (self.ax_overlay, "Overlay"),
-            (self.ax_wf,      "Wavefront Error (waves)"),
-            (self.ax_cs,      "Cross-section"),
-            (self.ax_pw,      "Process Window"),
+        for ax, title, is_img in [
+            (self.ax_aerial,  "Aerial Image",            True),
+            (self.ax_mask,    "Mask",                    True),
+            (self.ax_overlay, "Overlay",                 True),
+            (self.ax_wf,      "Wavefront Error (waves)", True),
+            (self.ax_cs,      "Cross-section",           False),
+            (self.ax_pw,      "Process Window",          False),
         ]:
             ax.clear()
-            self._style_ax(ax, title)
+            self._style_ax(ax, title, image_panel=is_img)
             ax.set_axis_off()
         self.canvas.draw()
 
@@ -269,7 +273,7 @@ class ResultsPanel(QWidget):
             self._cb_aerial = None
 
         ax.clear()
-        self._style_ax(ax, "Aerial Image")
+        self._style_ax(ax, "Aerial Image", image_panel=True)
 
         result = self._result
         if result is None or result.aerial_image is None:
@@ -285,7 +289,7 @@ class ResultsPanel(QWidget):
             ai, cmap='inferno', origin='lower',
             vmin=0, vmax=vmax, extent=ext, aspect='auto'
         )
-        self._cb_aerial = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        self._cb_aerial = self.figure.colorbar(im, ax=ax, fraction=0.035, shrink=0.85, pad=0.03)
         cb_label = "Intensity" if vmax > 1.0 else "Normalized Intensity"
         self._cb_aerial.set_label(cb_label, fontsize=theme.MPL_ANNOT)
         self._cb_aerial.ax.tick_params(labelsize=theme.MPL_ANNOT)
@@ -340,7 +344,7 @@ class ResultsPanel(QWidget):
         if gauges:
             ax.set_title("Cross-section (gauges)", fontsize=theme.MPL_TITLE,
                          fontweight='600', color=theme.TEXT_PRIMARY, pad=6)
-            ax.axhline(threshold, color='red', linestyle='--', linewidth=0.9,
+            ax.axhline(threshold, color=theme.DANGER, linestyle='--', linewidth=0.9,
                        label='Threshold {:.2f}'.format(threshold), zorder=2)
 
             for g in gauges:
@@ -413,13 +417,13 @@ class ResultsPanel(QWidget):
                 x = np.linspace(0, 1, len(profile))
                 x_label = "Position (norm.)"
 
-            ax.fill_between(x, 0, threshold, alpha=0.10, color='red',
+            ax.fill_between(x, 0, threshold, alpha=0.06, color=theme.DANGER,
                             label='Below threshold')
             ax.fill_between(x, threshold, profile,
                             where=(profile > threshold),
-                            alpha=0.15, color='blue', label='Above threshold')
-            ax.plot(x, profile, color='#1a6bb5', linewidth=1.4, zorder=3)
-            ax.axhline(threshold, color='red', linestyle='--', linewidth=0.9,
+                            alpha=0.12, color=theme.ACCENT, label='Above threshold')
+            ax.plot(x, profile, color=theme.ACCENT, linewidth=1.6, zorder=3)
+            ax.axhline(threshold, color=theme.DANGER, linestyle='--', linewidth=0.9,
                        label='Threshold {:.2f}'.format(threshold))
 
             above = profile > threshold
@@ -429,12 +433,12 @@ class ResultsPanel(QWidget):
                 y0, y1 = profile[ci], profile[ci + 1]
                 xc = x0 + (threshold - y0) * (x1 - x0) / (y1 - y0) \
                      if abs(y1 - y0) > 1e-10 else x0
-                ax.axvline(xc, color='green', linestyle=':', linewidth=0.8, alpha=0.8)
+                ax.axvline(xc, color=theme.SUCCESS, linestyle=':', linewidth=0.9, alpha=0.8)
 
             ax.text(0.02, 0.95, 'NILS={:.2f}'.format(nils),
                     transform=ax.transAxes, fontsize=theme.MPL_TICK, va='top',
-                    bbox=dict(boxstyle='round,pad=0.3', fc='white',
-                              ec=theme.BORDER, alpha=0.8))
+                    bbox=dict(boxstyle='round,pad=0.3', fc=theme.BG_PRIMARY,
+                              ec=theme.BORDER, alpha=0.9))
             ax.set_ylim(0, max(1.0, float(profile.max())) * 1.05)
             ax.set_xlabel(x_label, fontsize=theme.MPL_LABEL)
             ax.set_ylabel("Intensity", fontsize=theme.MPL_LABEL)
@@ -451,7 +455,7 @@ class ResultsPanel(QWidget):
         """Redraw ax_overlay: aerial image + mask contour + optional resist edge."""
         ax = self.ax_overlay
         ax.clear()
-        self._style_ax(ax, "Overlay")
+        self._style_ax(ax, "Overlay", image_panel=True)
 
         if result.aerial_image is None:
             ax.set_axis_off()
@@ -492,7 +496,7 @@ class ResultsPanel(QWidget):
             self._cb_wf = None
 
         ax.clear()
-        self._style_ax(ax, "Wavefront Error (waves)")
+        self._style_ax(ax, "Wavefront Error (waves)", image_panel=True)
 
         try:
             aber = result.config["lithography"]["aberrations"]
@@ -529,7 +533,7 @@ class ResultsPanel(QWidget):
             extent=[-1, 1, -1, 1], aspect='equal',
             vmin=-vmax, vmax=vmax,
         )
-        self._cb_wf = self.figure.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        self._cb_wf = self.figure.colorbar(im, ax=ax, fraction=0.035, shrink=0.85, pad=0.03)
         self._cb_wf.set_label("waves", fontsize=theme.MPL_ANNOT)
         self._cb_wf.ax.tick_params(labelsize=theme.MPL_ANNOT)
 
@@ -578,7 +582,7 @@ class ResultsPanel(QWidget):
 
         # ---- Mask ----
         self.ax_mask.clear()
-        self._style_ax(self.ax_mask, "Mask")
+        self._style_ax(self.ax_mask, "Mask", image_panel=True)
         if result.mask_grid is not None:
             xl, yl, ext = self._pixel_extent(result, result.mask_grid.shape)
             self.ax_mask.imshow(result.mask_grid, cmap='gray', origin='lower',
@@ -670,8 +674,9 @@ class ResultsPanel(QWidget):
         if self._pw_history:
             defocuses = [p[0] for p in self._pw_history]
             cds       = [p[1] for p in self._pw_history]
-            ax.plot(defocuses, cds, 'o-', color='#c0392b', linewidth=1.4,
-                    markersize=5, markerfacecolor='white',
+            ax.set_axis_on()
+            ax.plot(defocuses, cds, 'o-', color=theme.ACCENT, linewidth=1.6,
+                    markersize=5, markerfacecolor=theme.BG_PRIMARY,
                     markeredgewidth=1.5, zorder=3)
             cd_nom = self._pw_nominal_cd if self._pw_nominal_cd > 0 else (cds[0] if cds else 0)
             if cd_nom > 0:
