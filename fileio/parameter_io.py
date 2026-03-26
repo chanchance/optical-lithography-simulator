@@ -100,8 +100,8 @@ class ParameterIO:
         if not (1.0 <= wl <= 500.0):
             raise ValueError("wavelength_nm must be 1-500nm, got {}".format(wl))
         na = litho.get('NA', 0.93)
-        if not (0.01 <= na <= 1.5):
-            raise ValueError("NA must be 0.01-1.5, got {}".format(na))
+        if not (0.01 <= na <= 1.35):
+            raise ValueError("NA must be 0.01-1.35, got {}".format(na))
 
     def _deep_merge(self, base: Dict, override: Dict) -> Dict:
         """Recursively merge override into base dict."""

@@ -108,6 +108,8 @@ class EUVStochasticModel:
         N = aerial_image.shape[0]
         nm_per_pixel = self.domain_size_nm / N
         photons_per_pixel = self.photons_per_nm2 * nm_per_pixel**2 * dose_factor
+        if photons_per_pixel <= 0:
+            return aerial_image.copy()
         # Scale image to photon counts, apply Poisson noise, normalize back
         counts = aerial_image * photons_per_pixel
         noisy_counts = np.random.poisson(np.maximum(0, counts).astype(float))
