@@ -200,7 +200,7 @@ class AnalysisPanel(QWidget):
         form.addRow("Focus range:", self.focus_range_sb)
 
         self.dose_min_sb = QDoubleSpinBox()
-        self.dose_min_sb.setRange(0.5, 1.9)
+        self.dose_min_sb.setRange(0.5, 2.0)
         self.dose_min_sb.setValue(0.8)
         self.dose_min_sb.setSingleStep(0.05)
         form.addRow("Dose min:", self.dose_min_sb)
@@ -347,7 +347,8 @@ class AnalysisPanel(QWidget):
         )
         self._bossung_thread.finished.connect(self._on_bossung_done)
         self._bossung_thread.progress.connect(lambda msg, _pct: self.status_label.setText(msg))
-        self._bossung_thread.error.connect(self._on_analysis_error)
+        self._bossung_thread.error.connect(
+            lambda msg: self._on_analysis_error(msg, self.bossung_btn))
         self._bossung_thread.start()
 
     def _on_bossung_done(self, curves):
@@ -479,7 +480,8 @@ class AnalysisPanel(QWidget):
         )
         self._fem_thread.finished.connect(self._on_fem_done)
         self._fem_thread.progress.connect(lambda msg, _pct: self.status_label.setText(msg))
-        self._fem_thread.error.connect(self._on_analysis_error)
+        self._fem_thread.error.connect(
+            lambda msg: self._on_analysis_error(msg, self.fem_btn))
         self._fem_thread.start()
 
     def _on_fem_done(self, fem):
@@ -643,7 +645,10 @@ class AnalysisPanel(QWidget):
 
     # ── Error handler ──────────────────────────────────────────────────
 
-    def _on_analysis_error(self, msg):
-        self.bossung_btn.setEnabled(True)
-        self.fem_btn.setEnabled(True)
+    def _on_analysis_error(self, msg, button=None):
+        if button is not None:
+            button.setEnabled(True)
+        else:
+            self.bossung_btn.setEnabled(True)
+            self.fem_btn.setEnabled(True)
         self.status_label.setText("Error: " + msg.split('\n')[0])
