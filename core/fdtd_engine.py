@@ -299,6 +299,7 @@ class FDTDSimulator:
         check_interval = steps_per_period  # Check convergence every period
 
         converged = False
+        n = 0
         for n in range(self.max_timesteps):
             # Update H at n+1/2
             self._update_H_fields()
@@ -332,7 +333,20 @@ class FDTDSimulator:
         }
 
     def get_intensity(self, fields: Dict) -> np.ndarray:
-        """Compute |E|^2 intensity from field dict."""
-        return (np.abs(fields['Ex'])**2 +
-                np.abs(fields['Ey'])**2 +
-                np.abs(fields['Ez'])**2)
+        """
+        Compute |E|^2 intensity from field dict.
+
+        Yee grid components live at staggered positions and have different
+        shapes: Ex(nx, ny+1, nz+1), Ey(nx+1, ny, nz+1), Ez(nx+1, ny+1, nz).
+        Interpolate each to cell centers (nx, ny, nz) before summing.
+        """
+        Ex = fields['Ex']
+        Ey = fields['Ey']
+        Ez = fields['Ez']
+
+        # Interpolate to cell centers by averaging over the staggered dims
+        Ex_c = 0.5 * (Ex[:, :-1, :-1] + Ex[:, 1:, 1:])
+        Ey_c = 0.5 * (Ey[:-1, :, :-1] + Ey[1:, :, 1:])
+        Ez_c = 0.5 * (Ez[:-1, :-1, :] + Ez[1:, 1:, :])
+
+        return np.abs(Ex_c)**2 + np.abs(Ey_c)**2 + np.abs(Ez_c)**2

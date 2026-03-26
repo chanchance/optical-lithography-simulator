@@ -92,7 +92,7 @@ class ImagingSystem:
         sigma = np.zeros((N, N, nz))
         for iz in range(nz // 4, nz // 2):
             # Mask layer
-            sigma[:, :, iz] = (1.0 - np.abs(mask)) * 1e6  # Absorber conductivity
+            sigma[:, :, iz] = np.clip(1.0 - np.abs(mask), 0.0, 1.0) * 1e6  # Absorber conductivity
 
         sim.grid.eps_r = eps_r
         sim.grid.sigma = sigma
