@@ -374,10 +374,11 @@ class TransferMatrixEngine:
         ky_flat = ky_norm.ravel()
 
         for idx in range(len(kx_flat)):
-            # Physical kx from normalized coordinate (ky absorbed into kz via Pythagoras)
-            kx_phys = float(kx_flat[idx]) * k0
+            # Full in-plane wavevector magnitude: k_par = k0 * sqrt(kx_norm² + ky_norm²)
+            # TMM is rotationally symmetric; only k_par enters kz = sqrt((nk0)²−k_par²)
+            kpar_phys = float(np.sqrt(kx_flat[idx]**2 + ky_flat[idx]**2)) * k0
             try:
-                M = self._build_transfer_matrix(stack, kx_phys, polarization)
+                M = self._build_transfer_matrix(stack, kpar_phys, polarization)
                 r_val = M[1, 0] / M[0, 0]
                 result.ravel()[idx] = 1.0 + r_val
             except (ZeroDivisionError, FloatingPointError, ValueError):

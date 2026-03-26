@@ -243,6 +243,9 @@ class VectorImagingEngine:
 
         I_total = np.zeros((N, N), dtype=np.float64)
 
+        # mask_spatial is constant across all source points and polarizations
+        mask_spatial = np.fft.ifft2(mask_fft)
+
         for pol, pol_w in zip(pol_list, pol_weights):
             for sp in source_points:
                 # Source k-vector in cycles/nm
@@ -255,7 +258,6 @@ class VectorImagingEngine:
                 # Shift mask spectrum for oblique illumination:
                 # FFT{t(x,y) * exp(-j2π(ksx*x + ksy*y))} = M(fx + ksx, fy + ksy)
                 # (negative sign — see fourier_optics.py for derivation)
-                mask_spatial = np.fft.ifft2(mask_fft)
                 phase_ramp = np.exp(-1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
                 M_shifted = np.fft.fft2(mask_spatial * phase_ramp)
 
