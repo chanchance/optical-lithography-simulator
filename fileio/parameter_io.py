@@ -79,6 +79,18 @@ class ParameterIO:
                 'grid_size': 256,
                 'domain_size_nm': 2000.0,
             },
+            'resist': {
+                'model': 'threshold',
+                'threshold': 0.30,
+                'dose': 1.0,
+                'A': 0.8,
+                'B': 0.1,
+                'C': 0.01,
+                'peb_sigma_nm': 30.0,
+                'quantum_efficiency': 0.5,
+                'amplification': 50.0,
+                'exposure_threshold': 0.3,
+            },
         }
 
     def get_lithography_params(self, config: Dict[str, Any]) -> Dict[str, Any]:
