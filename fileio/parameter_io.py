@@ -52,7 +52,8 @@ class ParameterIO:
             yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
     def load_defaults(self) -> Dict[str, Any]:
-        """Load default config from package defaults."""
+        """Load default config from package defaults file, or return
+        hardcoded fallback if the file doesn't exist."""
         defaults_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             'config', 'default_config.yaml'
@@ -60,7 +61,25 @@ class ParameterIO:
         if os.path.exists(defaults_path):
             with open(defaults_path, 'r') as f:
                 return yaml.safe_load(f) or {}
-        return self._get_defaults()
+        # Hardcoded fallback — avoids infinite recursion through _get_defaults
+        return {
+            'lithography': {
+                'wavelength_nm': 193.0,
+                'NA': 0.93,
+                'defocus_nm': 0.0,
+                'illumination': {
+                    'type': 'annular',
+                    'sigma_outer': 0.85,
+                    'sigma_inner': 0.55,
+                },
+                'mask_type': 'binary',
+                'aberrations': {},
+            },
+            'simulation': {
+                'grid_size': 256,
+                'domain_size_nm': 2000.0,
+            },
+        }
 
     def get_lithography_params(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Extract flat lithography parameter dict for simulation."""

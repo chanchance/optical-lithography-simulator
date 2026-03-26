@@ -6,7 +6,8 @@ import numpy as np
 from typing import Optional, Dict, List, Tuple
 
 import matplotlib
-matplotlib.use('Agg')  # Headless-safe default (overridden by GUI)
+# Do NOT call matplotlib.use('Agg') — it conflicts with the Qt backend
+# when this module is imported from the GUI.
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.patches import Polygon as MplPolygon
@@ -40,9 +41,10 @@ class LayoutViewer:
     def get_layer_color(self, layer_num: int) -> Tuple:
         if layer_num in self.layer_colors:
             return self.layer_colors[layer_num]
-        # Auto-generate color for unknown layers
-        np.random.seed(layer_num)
-        r, g, b = np.random.rand(3) * 0.7 + 0.2
+        # Auto-generate deterministic color for unknown layers using a
+        # local RNG so we don't corrupt the global numpy random state.
+        rng = np.random.RandomState(layer_num)
+        r, g, b = rng.rand(3) * 0.7 + 0.2
         return (r, g, b, 0.8)
 
     def plot_layout(self, layout_data, layers: Optional[List[int]] = None,

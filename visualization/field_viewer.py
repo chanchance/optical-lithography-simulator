@@ -6,7 +6,8 @@ import numpy as np
 from typing import Optional, Dict, Tuple, List
 
 import matplotlib
-matplotlib.use('Agg')
+# Do NOT call matplotlib.use('Agg') — it conflicts with the Qt backend
+# when this module is imported from the GUI.
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
