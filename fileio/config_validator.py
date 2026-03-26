@@ -49,6 +49,14 @@ class ConfigValidator:
                 'EUV wavelength with NA > 0.55 is unusually high (typical EUV NA <= 0.33)',
                 'warning'))
 
+        # Hopkins TCC: n_kernels must be positive
+        if litho.get('use_hopkins', False):
+            n_kernels = litho.get('n_kernels', 10)
+            if n_kernels <= 0:
+                errors.append(ValidationError('lithography.n_kernels',
+                    'n_kernels must be > 0 for Hopkins TCC '
+                    '(got {}); aerial image will be all-zeros'.format(n_kernels), 'error'))
+
         # Hopkins TCC and vector imaging are mutually exclusive — Hopkins wins
         if litho.get('use_hopkins', False) and litho.get('use_vector', False):
             errors.append(ValidationError('lithography.use_vector',

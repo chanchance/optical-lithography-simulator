@@ -233,6 +233,8 @@ class FocusExposureMatrix:
         # so asymmetric dose ranges are handled correctly.
         ni = int(np.argmin(np.abs(self.dose_values - 1.0)))
         cd_ref = float(cd_row[ni])
+        if cd_ref <= 0:
+            return 0.0  # feature unresolved at nominal dose — EL is undefined
         tol = cd_ref * cd_tol_pct / 100.0
         in_window = np.abs(cd_row - cd_ref) <= tol
         if np.sum(in_window) < 2:
