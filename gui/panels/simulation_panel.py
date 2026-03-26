@@ -39,7 +39,7 @@ class SimulationPanel(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
 
         # ── Mode selection ────────────────────────────────────────────────────
-        mode_group = QGroupBox("Simulation Mode")
+        mode_group = QGroupBox("Mode")
         mode_outer = QVBoxLayout(mode_group)
         mode_outer.setSpacing(6)
 
@@ -65,6 +65,7 @@ class SimulationPanel(QWidget):
         self.mode_desc_label = QLabel(_MODE_DESCRIPTIONS['fourier_optics'])
         self.mode_desc_label.setWordWrap(True)
         self.mode_desc_label.setObjectName("caption")
+        self.mode_desc_label.setStyleSheet("padding: 4px 8px; background: transparent;")
         mode_outer.addWidget(self.mode_desc_label)
 
         self._mode_group.buttonClicked.connect(self._on_mode_changed)
@@ -75,12 +76,13 @@ class SimulationPanel(QWidget):
         ctrl_layout.setSpacing(8)
 
         self.run_btn = QPushButton("Run")
-        self.run_btn.setMinimumHeight(36)
+        self.run_btn.setMinimumHeight(52)
         self.run_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.run_btn.setObjectName("success")
+        self.run_btn.setToolTip("시뮬레이션 실행 (Ctrl+R)")
 
         self.stop_btn = QPushButton("Stop")
-        self.stop_btn.setMinimumHeight(36)
+        self.stop_btn.setMinimumHeight(44)
         self.stop_btn.setEnabled(False)
         self.stop_btn.setObjectName("danger")
 
@@ -91,9 +93,9 @@ class SimulationPanel(QWidget):
         self.stop_btn.clicked.connect(self._on_stop)
         self.reset_btn.clicked.connect(self._on_reset)
 
-        ctrl_layout.addWidget(self.run_btn)
-        ctrl_layout.addWidget(self.stop_btn)
-        ctrl_layout.addWidget(self.reset_btn)
+        ctrl_layout.addWidget(self.run_btn, 3)
+        ctrl_layout.addWidget(self.stop_btn, 1)
+        ctrl_layout.addWidget(self.reset_btn, 1)
         layout.addLayout(ctrl_layout)
 
         # ── Progress bar + ETA ────────────────────────────────────────────────
@@ -112,13 +114,18 @@ class SimulationPanel(QWidget):
 
         # LED indicator
         self.led_label = QLabel()
-        self.led_label.setFixedSize(14, 14)
+        self.led_label.setFixedSize(18, 18)
         self._set_led('gray')
         status_row.addWidget(self.led_label)
 
         self.status_label = QLabel("Ready")
         self.status_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         status_row.addWidget(self.status_label)
+
+        self.elapsed_label = QLabel("")
+        self.elapsed_label.setObjectName("caption")
+        self.elapsed_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        status_row.addWidget(self.elapsed_label)
 
         self.eta_label = QLabel("")
         self.eta_label.setObjectName("caption")
@@ -135,8 +142,9 @@ class SimulationPanel(QWidget):
 
         self.log_edit = QTextEdit()
         self.log_edit.setReadOnly(True)
+        self.log_edit.setPlaceholderText("시뮬레이션을 실행하면 로그가 표시됩니다.")
         self.log_edit.setFontFamily("Monospace")
-        self.log_edit.setMinimumHeight(140)
+        self.log_edit.setMinimumHeight(160)
 
         log_header = QHBoxLayout()
         log_header.addStretch()
@@ -163,7 +171,7 @@ class SimulationPanel(QWidget):
         }
         bg = colors.get(color, theme.TEXT_TERTIARY)
         self.led_label.setStyleSheet(
-            "QLabel {{ background-color: {bg}; border-radius: 7px; }}".format(bg=bg)
+            "QLabel {{ background-color: {bg}; border-radius: 9px; }}".format(bg=bg)
         )
 
     # ── Mode change ───────────────────────────────────────────────────────────
@@ -207,6 +215,7 @@ class SimulationPanel(QWidget):
         # ETA estimation
         if self._elapsed.isValid():
             elapsed_s = self._elapsed.elapsed() / 1000.0
+            self.elapsed_label.setText("{:.1f}s".format(elapsed_s))
             if percent > 0:
                 eta_s = elapsed_s * (100 - percent) / percent
                 self.eta_label.setText("ETA: {:.0f}s".format(eta_s))
@@ -231,6 +240,7 @@ class SimulationPanel(QWidget):
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self._set_led('green')
+        self.elapsed_label.setText("")
         self.eta_label.setText("")
 
     def on_simulation_stopped(self):
@@ -238,6 +248,7 @@ class SimulationPanel(QWidget):
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self._set_led('gray')
+        self.elapsed_label.setText("")
         self.eta_label.setText("")
 
     def on_simulation_error(self, msg):
@@ -246,4 +257,5 @@ class SimulationPanel(QWidget):
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self._set_led('red')
+        self.elapsed_label.setText("")
         self.eta_label.setText("")
