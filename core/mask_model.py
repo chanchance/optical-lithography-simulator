@@ -136,7 +136,7 @@ class ThinScalarMask:
 
             yi_arr, xi_arr = np.meshgrid(np.arange(N), np.arange(N), indexing='ij')
             points = np.column_stack([xi_arr.ravel(), yi_arr.ravel()])
-            mask = path.contains_points(points).reshape(N, N).T
+            mask = path.contains_points(points).reshape(N, N)
             return mask
         except Exception:
             # Fallback: bounding box fill
