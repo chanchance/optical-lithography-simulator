@@ -408,6 +408,15 @@ class ParameterPanel(QWidget):
         self.ca_peb_sb.setToolTip("Post-exposure bake diffusion sigma (nm)")
         self.ca_peb_sb.valueChanged.connect(self.params_changed)
         ca_form.addRow("PEB σ:", self.ca_peb_sb)
+
+        self.ca_exposure_threshold_sb = QDoubleSpinBox()
+        self.ca_exposure_threshold_sb.setRange(0.01, 1.0)
+        self.ca_exposure_threshold_sb.setValue(0.5)
+        self.ca_exposure_threshold_sb.setDecimals(3)
+        self.ca_exposure_threshold_sb.setSingleStep(0.05)
+        self.ca_exposure_threshold_sb.setToolTip("Development threshold on deprotection level [0,1]")
+        self.ca_exposure_threshold_sb.valueChanged.connect(self.params_changed)
+        ca_form.addRow("Exposure Threshold:", self.ca_exposure_threshold_sb)
         self.resist_stack.addWidget(ca_page)
 
         resist_outer.addWidget(self.resist_stack)
@@ -420,6 +429,23 @@ class ParameterPanel(QWidget):
 
         self._film_stack = None
         layout.addWidget(resist_group)
+
+        # ---- Analysis ----
+        analysis_group = QGroupBox("Analysis")
+        analysis_group.setFlat(False)
+        analysis_form = QFormLayout(analysis_group)
+        analysis_form.setContentsMargins(8, 12, 8, 8)
+
+        self.cd_threshold_sb = QDoubleSpinBox()
+        self.cd_threshold_sb.setRange(0.01, 0.99)
+        self.cd_threshold_sb.setValue(0.30)
+        self.cd_threshold_sb.setDecimals(2)
+        self.cd_threshold_sb.setSingleStep(0.01)
+        self.cd_threshold_sb.setToolTip("Intensity threshold used for CD measurement")
+        self.cd_threshold_sb.valueChanged.connect(self.params_changed)
+        analysis_form.addRow("CD Threshold:", self.cd_threshold_sb)
+
+        layout.addWidget(analysis_group)
 
         # ---- Load / Save buttons ----
         btn_row = QHBoxLayout()
@@ -544,6 +570,9 @@ class ParameterPanel(QWidget):
                 "n_orders": self.rcwa_n_orders_sb.value(),
             },
             "resist": self._get_resist_config(),
+            "analysis": {
+                "cd_threshold": self.cd_threshold_sb.value(),
+            },
         }
 
     def _get_resist_config(self) -> dict:
@@ -571,6 +600,12 @@ class ParameterPanel(QWidget):
         illum = litho.get("illumination", {})
         aber = litho.get("aberrations", {})
 
+        illum_rmap = {
+            "circular": "Circular", "annular": "Annular",
+            "quadrupole": "Quadrupole", "quasar": "Quasar",
+        }
+        mask_rmap = {"binary": "Binary", "att_psm": "AttPSM", "alt_psm": "AltPSM"}
+
         self._applying_preset = True
         try:
             self.wavelength_sb.setValue(litho.get("wavelength_nm", 193.0))
@@ -578,23 +613,18 @@ class ParameterPanel(QWidget):
             self.defocus_sb.setValue(litho.get("defocus_nm", 0.0))
             self.sigma_outer_sb.setValue(illum.get("sigma_outer", 0.85))
             self.sigma_inner_sb.setValue(illum.get("sigma_inner", 0.55))
+            self.illum_combo.setCurrentText(
+                illum_rmap.get(illum.get("type", "annular"), "Annular")
+            )
+            self.mask_combo.setCurrentText(
+                mask_rmap.get(litho.get("mask_type", "binary"), "Binary")
+            )
             zernike_coeffs = aber.get("zernike", [0.0] * 37)
             for i, sb in enumerate(self.zernike_sbs):
                 sb.setValue(zernike_coeffs[i] if i < len(zernike_coeffs) else 0.0)
         finally:
             self._applying_preset = False
 
-        illum_rmap = {
-            "circular": "Circular", "annular": "Annular",
-            "quadrupole": "Quadrupole", "quasar": "Quasar",
-        }
-        self.illum_combo.setCurrentText(
-            illum_rmap.get(illum.get("type", "annular"), "Annular")
-        )
-        mask_rmap = {"binary": "Binary", "att_psm": "AttPSM", "alt_psm": "AltPSM"}
-        self.mask_combo.setCurrentText(
-            mask_rmap.get(litho.get("mask_type", "binary"), "Binary")
-        )
         self.grid_combo.setCurrentText(str(sim.get("grid_size", 256)))
         self.domain_sb.setValue(sim.get("domain_size_nm", 2000.0))
         if self.gpu_cb.isEnabled():
@@ -616,6 +646,9 @@ class ParameterPanel(QWidget):
         self.ca_qe_sb.setValue(resist_cfg.get("quantum_efficiency", 0.5))
         self.ca_amp_sb.setValue(resist_cfg.get("amplification", 50.0))
         self.ca_peb_sb.setValue(resist_cfg.get("peb_sigma_nm", 25.0))
+
+        analysis_cfg = config.get("analysis", {})
+        self.cd_threshold_sb.setValue(analysis_cfg.get("cd_threshold", 0.30))
 
         # Mark as custom after loading
         self.preset_combo.blockSignals(True)
