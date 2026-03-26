@@ -194,8 +194,12 @@ class QuadrupoleSource(BaseSource):
 
 class QuasarSource(BaseSource):
     """
-    Quasar illumination: 4 arc-shaped poles rotated by theta_q.
-    Used for diagonal feature orientations.
+    Quasar illumination: 4 disc-shaped poles at 45°/135°/225°/315°.
+    Same as QuadrupoleSource but rotated 45° — optimised for diagonal features.
+
+    sigma_c: disc radius (= (sigma_outer - sigma_inner) / 2)
+    sigma_r: pole centre radial distance (= (sigma_outer + sigma_inner) / 2)
+    theta_q: retained for API compatibility but not used in sampling.
     """
 
     def __init__(self, NA: float, sigma_c: float, sigma_r: float, theta_q: float,
@@ -203,42 +207,40 @@ class QuasarSource(BaseSource):
         super().__init__(NA, wavelength_nm, N_points, polarization)
         self.sigma_c = sigma_c
         self.sigma_r = sigma_r
-        self.theta_q = np.radians(theta_q)   # Opening half-angle
+        self.theta_q = np.radians(theta_q)   # retained for API compat
 
     def _compute_points(self) -> List[SourcePoint]:
-        # 4 poles at 45°, 135°, 225°, 315°
-        pole_angles = [np.pi/4, 3*np.pi/4, 5*np.pi/4, 7*np.pi/4]
+        # 4 circular-disc poles at 45°, 135°, 225°, 315°.
+        # Disc sampling matches the source-dialog preview and is the standard
+        # industry definition of quasar (quadrupole rotated 45°).
+        # The previous arc-based implementation with theta_q=45° (default) made
+        # each pole span a 90° arc, causing four poles to cover the full annulus
+        # (identical to annular illumination) which defeats quasar's purpose.
+        inv_sqrt2 = 1.0 / np.sqrt(2.0)
+        r = self.sigma_r * inv_sqrt2
+        pole_centers = [
+            ( r,  r),   # 45°
+            (-r,  r),   # 135°
+            (-r, -r),   # 225°
+            ( r, -r),   # 315°
+        ]
 
-        n_angular = max(3, self.N_points * 2)
-        n_radial = max(2, self.N_points)
+        n = max(4, self.N_points * 3)
+        lin = np.linspace(-self.sigma_c, self.sigma_c, n)
+        KX_d, KY_d = np.meshgrid(lin, lin, indexing='ij')
+        in_disc = (KX_d**2 + KY_d**2) <= self.sigma_c**2
 
-        r_arr = np.linspace(self.sigma_r - self.sigma_c,
-                            self.sigma_r + self.sigma_c, n_radial)
-        r_arr = r_arr[r_arr > 0]
+        all_points = []
+        for cx, cy in pole_centers:
+            kx_pts = cx + KX_d[in_disc]
+            ky_pts = cy + KY_d[in_disc]
+            for kx, ky in zip(kx_pts.ravel(), ky_pts.ravel()):
+                all_points.append((float(kx), float(ky)))
 
-        # Store (kx, ky, r) — area element in polar coords is r·dr·dθ,
-        # so each sample's weight is proportional to its radial distance r.
-        # Equal-weight sampling would under-weight outer radial samples.
-        all_kx = []
-        all_ky = []
-        all_r = []
-        for center_angle in pole_angles:
-            for r in r_arr:
-                for dt in np.linspace(-self.theta_q, self.theta_q, n_angular):
-                    angle = center_angle + dt
-                    all_kx.append(r * np.cos(angle))
-                    all_ky.append(r * np.sin(angle))
-                    all_r.append(r)
-
-        if not all_kx:
-            return [SourcePoint(0.0, 0.0, 1.0, self.polarization)]
-
-        raw_weights = np.array(all_r)
-        total = raw_weights.sum()
-        weights = raw_weights / total if total > 0 else np.ones(len(all_r)) / len(all_r)
-        return [SourcePoint(float(all_kx[i]), float(all_ky[i]),
-                            float(weights[i]), self.polarization)
-                for i in range(len(all_kx))]
+        n_pts = max(1, len(all_points))
+        weight = 1.0 / n_pts
+        return [SourcePoint(float(p[0]), float(p[1]), weight, self.polarization)
+                for p in all_points]
 
 
 class DipoleSource(BaseSource):
