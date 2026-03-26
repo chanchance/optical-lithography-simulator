@@ -518,7 +518,7 @@ class SourceDialog(QDialog):
         """Return (kx_arr, ky_arr, n_pts) for the freeform scatter plot."""
         if self._freeform_source is None:
             return np.array([]), np.array([]), 0
-        sx, sy, _w = self._freeform_source.get_source_points()
+        sx, sy, _w = self._freeform_source.get_source_arrays()
         return sx, sy, len(sx)
 
     def get_illumination_config(self):

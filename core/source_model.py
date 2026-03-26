@@ -284,10 +284,25 @@ class FreeformSource:
         arr[r > sigma_max] = 0.0
         return cls.from_array(arr, sigma_max)
 
-    def get_source_points(self) -> tuple:
+    def get_source_points(self) -> List[SourcePoint]:
         """
-        Return (sigma_x, sigma_y, weights) arrays for Abbe integration.
+        Return list of SourcePoint objects for Abbe integration.
+        Compatible with BaseSource / FourierOpticsEngine interface.
         Only returns points with intensity > threshold.
+        """
+        sx, sy, weights = self.get_source_arrays()
+        total = np.sum(weights)
+        if total > 0:
+            weights = weights / total
+        return [SourcePoint(kx=float(sx[i]), ky=float(sy[i]),
+                            weight=float(weights[i]),
+                            polarization='both')
+                for i in range(len(sx))]
+
+    def get_source_arrays(self) -> tuple:
+        """
+        Return (sigma_x, sigma_y, weights) arrays.
+        Used by the source dialog for scatter plot visualization.
         """
         N = self.pupil_size
         s = np.linspace(-self._sigma_max, self._sigma_max, N)
