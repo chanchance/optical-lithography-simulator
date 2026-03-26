@@ -154,37 +154,49 @@ class FDTDSimulator:
         Update E fields using Yee equations (Pistor Eq 1-8).
         E^{n+1} = alpha * E^n + beta * (curl H)
         Vectorized numpy operations for efficiency.
+
+        Yee staggering:
+          Ex(nx, ny+1, nz+1) at (i, j+1/2, k+1/2)
+          Ey(nx+1, ny, nz+1) at (i+1/2, j, k+1/2)
+          Ez(nx+1, ny+1, nz) at (i+1/2, j+1/2, k)
+        Coefficients alpha, beta are (nx, ny, nz) at cell centers.
+        Map cell-centered coefficients to interior E-field nodes by
+        slicing to match the interior dimensions.
         """
         g = self.grid
+        nx, ny, nz = g.nx, g.ny, g.nz
         alpha = g._alpha
         beta = g._beta
-        gamma = g._gamma
 
-        # Ex update: Ex[i,j+1/2,k+1/2]
-        # dHz/dy - dHy/dz
+        # Ex interior: Ex[:, 1:ny, 1:nz] has shape (nx, ny-1, nz-1)
+        # Use coefficients alpha[:, :ny-1, :nz-1]
+        a_ex = alpha[:, :ny-1, :nz-1]
+        b_ex = beta[:, :ny-1, :nz-1]
         g.Ex[:, 1:-1, 1:-1] = (
-            alpha[:, 1:-1, 1:-1] * g.Ex[:, 1:-1, 1:-1] +
-            beta[:, 1:-1, 1:-1] * (
+            a_ex * g.Ex[:, 1:-1, 1:-1] +
+            b_ex * (
                 (g.Hz[:, 1:, 1:-1] - g.Hz[:, :-1, 1:-1]) / self.dy -
                 (g.Hy[:, 1:-1, 1:] - g.Hy[:, 1:-1, :-1]) / self.dz
             )
         )
 
-        # Ey update: Ey[i+1/2,j,k+1/2]
-        # dHx/dz - dHz/dx
+        # Ey interior: Ey[1:nx, :, 1:nz] has shape (nx-1, ny, nz-1)
+        a_ey = alpha[:nx-1, :, :nz-1]
+        b_ey = beta[:nx-1, :, :nz-1]
         g.Ey[1:-1, :, 1:-1] = (
-            alpha[1:-1, :, 1:-1] * g.Ey[1:-1, :, 1:-1] +
-            beta[1:-1, :, 1:-1] * (
+            a_ey * g.Ey[1:-1, :, 1:-1] +
+            b_ey * (
                 (g.Hx[1:-1, :, 1:] - g.Hx[1:-1, :, :-1]) / self.dz -
                 (g.Hz[1:, :, 1:-1] - g.Hz[:-1, :, 1:-1]) / self.dx
             )
         )
 
-        # Ez update: Ez[i+1/2,j+1/2,k]
-        # dHy/dx - dHx/dy
+        # Ez interior: Ez[1:nx, 1:ny, :] has shape (nx-1, ny-1, nz)
+        a_ez = alpha[:nx-1, :ny-1, :]
+        b_ez = beta[:nx-1, :ny-1, :]
         g.Ez[1:-1, 1:-1, :] = (
-            alpha[1:-1, 1:-1, :] * g.Ez[1:-1, 1:-1, :] +
-            beta[1:-1, 1:-1, :] * (
+            a_ez * g.Ez[1:-1, 1:-1, :] +
+            b_ez * (
                 (g.Hy[1:, 1:-1, :] - g.Hy[:-1, 1:-1, :]) / self.dx -
                 (g.Hx[1:-1, 1:, :] - g.Hx[1:-1, :-1, :]) / self.dy
             )
