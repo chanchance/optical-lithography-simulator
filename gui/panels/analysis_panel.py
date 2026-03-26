@@ -287,6 +287,20 @@ class AnalysisPanel(QWidget):
         root.addWidget(splitter)
         self._init_plots()
 
+    def _init_plots(self):
+        """Initialize all subplots with empty styled state."""
+        for ax, title in [
+            (self.ax_bossung, "Bossung Curves"),
+            (self.ax_fem,     "Focus-Exposure Matrix"),
+            (self.ax_pw,      "Process Window"),
+            (self.ax_metrics, "Key Metrics"),
+        ]:
+            _style_ax(ax, title)
+            ax.text(0.5, 0.5, "No data", ha='center', va='center',
+                    fontsize=10, color=theme.TEXT_TERTIARY,
+                    transform=ax.transAxes)
+            ax.set_axis_off()
+        self.canvas.draw_idle()
 
     # ── Public API ─────────────────────────────────────────────────────
 
