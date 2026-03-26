@@ -267,7 +267,14 @@ class LayoutPanel(QWidget):
             self.ax.set_xlim(bb.xmin - margin, bb.xmax + margin)
             self.ax.set_ylim(bb.ymin - margin, bb.ymax + margin)
         elif self._polys_by_layer:
-            all_pts = np.concatenate([p for polys in self._polys_by_layer.values() for p in polys])
+            flat = [p for polys in self._polys_by_layer.values() for p in polys]
+            if not flat:
+                self.ax.set_xlim(-1000, 1000)
+                self.ax.set_ylim(-1000, 1000)
+                self.figure.tight_layout()
+                self.canvas.draw()
+                return
+            all_pts = np.concatenate(flat)
             xmin, ymin = all_pts.min(axis=0)
             xmax, ymax = all_pts.max(axis=0)
             margin = max(xmax - xmin, ymax - ymin) * 0.05 + 1
