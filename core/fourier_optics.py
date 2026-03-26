@@ -219,7 +219,6 @@ class FourierOpticsEngine:
         # Select compute backend (NumPy or CuPy)
         if self.use_gpu:
             from .gpu_backend import to_gpu, to_cpu, fft2 as _fft2, ifft2 as _ifft2
-            xp = None  # not needed directly; use backend functions
         else:
             to_gpu = lambda a: a  # noqa: E731
             to_cpu = lambda a: a  # noqa: E731
