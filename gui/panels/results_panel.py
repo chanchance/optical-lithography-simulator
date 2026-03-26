@@ -6,7 +6,7 @@ analysis gauges.
 import numpy as np
 
 from gui.qt_compat import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QSplitter,
     QTableWidgetItem, QPushButton, QFileDialog, QMessageBox, QApplication,
     QLabel, QFont, QFrame, Qt, QCheckBox, QComboBox, QGroupBox,
 )
@@ -51,19 +51,27 @@ class ResultsPanel(QWidget):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
 
-        # ---- Main figure with GridSpec(2, 6) ----
-        self.figure = Figure(figsize=(12, 8), dpi=theme.MPL_DPI, constrained_layout=True)
-        self.figure.patch.set_facecolor(theme.BG_PRIMARY)
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.setChildrenCollapsible(False)
 
-        gs = GridSpec(2, 8, figure=self.figure)
-        self.ax_aerial  = self.figure.add_subplot(gs[0, 0:2])
-        self.ax_mask    = self.figure.add_subplot(gs[0, 2:4])
-        self.ax_overlay = self.figure.add_subplot(gs[0, 4:6])
-        self.ax_wf      = self.figure.add_subplot(gs[0, 6:8])
-        self.ax_cs      = self.figure.add_subplot(gs[1, 0:4])
-        self.ax_pw      = self.figure.add_subplot(gs[1, 4:8])
+        # ── Left: matplotlib canvas (large) ────────────────────────────
+        self.figure = Figure(figsize=(10, 6), dpi=theme.MPL_DPI)
+        self.figure.patch.set_facecolor(theme.BG_PRIMARY)
+        self.figure.subplots_adjust(
+            left=0.06, right=0.98, top=0.93, bottom=0.08,
+            hspace=0.44, wspace=0.36,
+        )
+
+        gs = GridSpec(2, 4, figure=self.figure)
+        self.ax_aerial  = self.figure.add_subplot(gs[0, 0])
+        self.ax_mask    = self.figure.add_subplot(gs[0, 1])
+        self.ax_overlay = self.figure.add_subplot(gs[0, 2])
+        self.ax_wf      = self.figure.add_subplot(gs[0, 3])
+        self.ax_cs      = self.figure.add_subplot(gs[1, 0:2])
+        self.ax_pw      = self.figure.add_subplot(gs[1, 2:4])
 
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.setMinimumWidth(380)
         self.canvas.mpl_connect('button_press_event', self._on_canvas_click)
 
         canvas_frame = QFrame()
@@ -71,31 +79,30 @@ class ResultsPanel(QWidget):
             "QFrame { border: 1px solid %s; border-radius: 8px; background: %s; }"
             % (theme.BORDER, theme.BG_PRIMARY)
         )
-        frame_layout = QVBoxLayout(canvas_frame)
-        frame_layout.setContentsMargins(0, 0, 0, 0)
-        frame_layout.addWidget(self.canvas)
-        layout.addWidget(canvas_frame, stretch=4)
+        canvas_fl = QVBoxLayout(canvas_frame)
+        canvas_fl.setContentsMargins(0, 0, 0, 0)
+        canvas_fl.addWidget(self.canvas)
+        splitter.addWidget(canvas_frame)
 
-        # ---- Bottom row: table + buttons ----
-        bottom = QHBoxLayout()
+        # ── Right panel: table + metrics + controls ─────────────────────
+        right = QWidget()
+        right.setMinimumWidth(200)
+        right.setMaximumWidth(240)
+        right_layout = QVBoxLayout(right)
+        right_layout.setContentsMargins(6, 0, 0, 0)
+        right_layout.setSpacing(6)
 
+        # Metrics table at top
         self.table = QTableWidget(0, 2)
         self.table.setHorizontalHeaderLabels(["Metric", "Value"])
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setMaximumHeight(160)
+        self.table.setMaximumHeight(150)
         self.table.setAlternatingRowColors(False)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
-        bottom.addWidget(self.table, stretch=2)
+        right_layout.addWidget(self.table)
 
-        btn_frame = QFrame()
-        btn_frame.setStyleSheet(
-            "QFrame { background: %s; border-left: 1px solid %s; padding: 8px; }"
-            % (theme.BG_SECONDARY, theme.BORDER)
-        )
-        btn_col = QVBoxLayout(btn_frame)
-        btn_col.setSpacing(4)
-
+        # Button widgets
         self.export_png_btn   = QPushButton("Export PNG")
         self.export_pdf_btn   = QPushButton("Export PDF")
         self.copy_table_btn   = QPushButton("Copy Table")
@@ -129,7 +136,7 @@ class ResultsPanel(QWidget):
         self.lock_v_chk.toggled.connect(self._on_lock_v_toggled)
         self.show_resist_chk.toggled.connect(self._on_resist_edge_toggled)
 
-        # ── Hero metrics card ──
+        # Hero metrics card
         metrics_card = QFrame()
         metrics_card.setFrameShape(QFrame.StyledPanel)
         metrics_layout = QVBoxLayout(metrics_card)
@@ -146,18 +153,18 @@ class ResultsPanel(QWidget):
             "font-size: 13px; color: {};".format(theme.TEXT_SECONDARY))
         for w in (self.cd_hero, self.nils_hero, self.dof_hero):
             metrics_layout.addWidget(w)
-        btn_col.addWidget(metrics_card)
+        right_layout.addWidget(metrics_card)
 
-        # ── Export group ──
+        # Export group
         _grp_export = QGroupBox("Export")
         _grp_export_lay = QVBoxLayout(_grp_export)
         _grp_export_lay.setSpacing(4)
         _grp_export_lay.setContentsMargins(6, 6, 6, 6)
         for w in (self.export_png_btn, self.export_pdf_btn, self.copy_table_btn):
             _grp_export_lay.addWidget(w)
-        btn_col.addWidget(_grp_export)
+        right_layout.addWidget(_grp_export)
 
-        # ── Gauge group ──
+        # Gauge group
         _grp_gauge = QGroupBox("Gauge Tool")
         _grp_gauge_lay = QVBoxLayout(_grp_gauge)
         _grp_gauge_lay.setSpacing(4)
@@ -173,16 +180,17 @@ class ResultsPanel(QWidget):
                   self.show_resist_chk, self.gauge_status,
                   self._gauge_hint):
             _grp_gauge_lay.addWidget(w)
-        btn_col.addWidget(_grp_gauge)
+        right_layout.addWidget(_grp_gauge)
+        right_layout.addStretch()
 
-        btn_col.addStretch()
+        splitter.addWidget(right)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
 
         self._gauge_cancel_shortcut = QShortcut(QKeySequence("Escape"), self)
         self._gauge_cancel_shortcut.activated.connect(self._cancel_gauge)
 
-        bottom.addWidget(btn_frame)
-
-        layout.addLayout(bottom, stretch=1)
+        layout.addWidget(splitter)
 
         self._clear_plots()
         self._draw_pw_strip()

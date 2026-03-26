@@ -93,8 +93,7 @@ class ParameterPanel(QWidget):
             ("i-line 365nm", 365.0, 0.65),
         ]:
             _btn = QPushButton(_lbl)
-            _btn.setObjectName("secondary")
-            _btn.setMaximumHeight(30)
+            _btn.setObjectName("secondary_sm")
             _btn.setToolTip("Set wavelength={} nm, NA={}".format(_wl, _na))
             _btn.clicked.connect(
                 lambda checked=False, w=_wl, n=_na: self._apply_quick_preset(w, n))

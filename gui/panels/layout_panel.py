@@ -158,7 +158,7 @@ class LayoutPanel(QWidget):
         self.figure = Figure(figsize=(6, 6), dpi=theme.MPL_DPI)
         self.ax = self.figure.add_subplot(111)
         self.ax.set_aspect('equal')
-        self.ax.set_title("레이아웃 없음 — GDS/OAS 파일을 열어주세요")
+        self.ax.set_title("No layout — open a GDS/OAS file")
         self.ax.set_facecolor(theme.BG_SECONDARY)
         self.ax.text(0.5, 0.5, "Open GDS/OAS to begin",
                      ha='center', va='center',

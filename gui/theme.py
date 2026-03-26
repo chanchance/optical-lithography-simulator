@@ -70,6 +70,7 @@ def get_qss() -> str:
         color: {ACCENT};
         border-bottom: 3px solid {ACCENT};
         font-weight: 600;
+        padding: 8px 16px;
     }}
     QTabBar::tab:hover:!selected {{ color: {TEXT_PRIMARY}; background: {BG_TERTIARY}; }}
 
@@ -110,6 +111,13 @@ def get_qss() -> str:
         min-height: 32px; border-radius: 8px; font-weight: 500;
     }}
     QPushButton[objectName="secondary"]:hover {{ background: #EBF2FF; }}
+
+    QPushButton[objectName="secondary_sm"] {{
+        background: {BG_PRIMARY}; color: {ACCENT}; border: 1px solid {ACCENT};
+        min-height: 22px; max-height: 24px; border-radius: 6px;
+        font-weight: 500; font-size: 11px; padding: 2px 8px;
+    }}
+    QPushButton[objectName="secondary_sm"]:hover {{ background: #EBF2FF; }}
 
     /* === GroupBox === */
     QGroupBox {{
@@ -328,8 +336,8 @@ def get_qss() -> str:
         background: {BG_PRIMARY};
     }}
     QRadioButton::indicator:checked {{
-        border: 5px solid {ACCENT};
-        background: {BG_PRIMARY};
+        border: 2px solid {ACCENT};
+        background: {ACCENT};
     }}
     QRadioButton::indicator:hover {{ border-color: {ACCENT}; }}
     QRadioButton:disabled {{ color: {TEXT_TERTIARY}; }}

@@ -19,9 +19,9 @@ except ImportError:
 from gui import theme
 
 _MASK_DESCRIPTIONS = {
-    0: "완전 투명/불투명 이진 마스크 (Cr/MoSi 흡수층)",
-    1: "6% 위상 반전 마스크 — 투과율 6%, 위상차 180°",
-    2: "교번 위상 반전 마스크 — 인접 개구부 180° 위상 교번",
+    0: "Binary mask — fully opaque/transparent (Cr/MoSi absorber)",
+    1: "Attenuated PSM — 6% transmittance, 180° phase shift",
+    2: "Alternating PSM — adjacent apertures alternated 180° phase",
 }
 
 

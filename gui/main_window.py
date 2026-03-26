@@ -293,7 +293,7 @@ class MainWindow(QMainWindow):
 
         act_open = QAction("Open Layout", self)
         act_open.triggered.connect(self._open_layout)
-        act_open.setToolTip("GDS/OAS 레이아웃 열기 (Ctrl+O)")
+        act_open.setToolTip("Open GDS/OAS layout (Ctrl+O)")
         tb.addAction(act_open)
 
         tb.addSeparator()
@@ -302,19 +302,19 @@ class MainWindow(QMainWindow):
         act_run.triggered.connect(
             lambda: (self.tabs.setCurrentIndex(2), self.sim_panel._on_run())
         )
-        act_run.setToolTip("시뮬레이션 실행 (Ctrl+R)")
+        act_run.setToolTip("Run simulation (Ctrl+R)")
         tb.addAction(act_run)
 
         act_stop = QAction("Stop ■", self)
         act_stop.triggered.connect(self._stop_simulation)
-        act_stop.setToolTip("시뮬레이션 중지 (Esc)")
+        act_stop.setToolTip("Stop simulation (Esc)")
         tb.addAction(act_stop)
 
         tb.addSeparator()
 
         act_source = QAction("Source...", self)
         act_source.triggered.connect(self._show_source_dialog)
-        act_source.setToolTip("조명원(k-space) 미리보기 / 설정")
+        act_source.setToolTip("Illumination source (k-space) preview / settings")
         tb.addAction(act_source)
 
     def _build_shortcuts(self):

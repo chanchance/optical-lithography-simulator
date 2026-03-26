@@ -78,7 +78,7 @@ class SimulationPanel(QWidget):
         self.run_btn.setMinimumHeight(52)
         self.run_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.run_btn.setObjectName("success")
-        self.run_btn.setToolTip("시뮬레이션 실행 (Ctrl+R)")
+        self.run_btn.setToolTip("Run simulation (Ctrl+R)")
 
         self.stop_btn = QPushButton("Stop")
         self.stop_btn.setMinimumHeight(44)
@@ -141,7 +141,7 @@ class SimulationPanel(QWidget):
 
         self.log_edit = QTextEdit()
         self.log_edit.setReadOnly(True)
-        self.log_edit.setPlaceholderText("시뮬레이션을 실행하면 로그가 표시됩니다.")
+        self.log_edit.setPlaceholderText("Simulation log will appear here.")
         self.log_edit.setFontFamily("Monospace")
         self.log_edit.setMinimumHeight(160)
 
