@@ -58,11 +58,8 @@ class ProcessWindow:
         el_per_focus = np.array(el_per_focus)
         has_window = el_per_focus > 0
         if np.any(has_window):
-            if len(focus_axis_nm) >= 2:
-                focus_step = focus_axis_nm[1] - focus_axis_nm[0]
-            else:
-                focus_step = 0.0
-            dof = float(np.sum(has_window) * focus_step)
+            focus_in_window = focus_axis_nm[has_window]
+            dof = float(focus_in_window[-1] - focus_in_window[0]) if len(focus_in_window) >= 2 else 0.0
             best_focus_idx = np.argmax(el_per_focus)
             best_focus = float(focus_axis_nm[best_focus_idx])
         else:

@@ -67,8 +67,24 @@ class SourceDialog(QDialog):
         self.sigma_inner_sb.setValue(sigma_inner)
         self.sigma_outer_sb.blockSignals(False)
         self.sigma_inner_sb.blockSignals(False)
-        if illum.get('type') == 'freeform' and illum.get('expression'):
-            self._freeform_expr.setText(illum['expression'])
+        if illum.get('type') == 'dipole':
+            sigma_c = illum.get('sigma_center', self._sigma_center_sb.value())
+            self._sigma_center_sb.blockSignals(True)
+            self._sigma_center_sb.setValue(sigma_c)
+            self._sigma_center_sb.blockSignals(False)
+            orientation = illum.get('orientation', 'x')
+            idx_o = self._orientation_combo.findText(orientation)
+            if idx_o >= 0:
+                self._orientation_combo.blockSignals(True)
+                self._orientation_combo.setCurrentIndex(idx_o)
+                self._orientation_combo.blockSignals(False)
+        if illum.get('type') == 'freeform':
+            sigma_max = illum.get('sigma_max', self._sigma_max_spin.value())
+            self._sigma_max_spin.blockSignals(True)
+            self._sigma_max_spin.setValue(sigma_max)
+            self._sigma_max_spin.blockSignals(False)
+            if illum.get('expression'):
+                self._freeform_expr.setText(illum['expression'])
 
     def _build_ui(self):
         root_layout = QVBoxLayout(self)
