@@ -8,7 +8,7 @@ import numpy as np
 from gui.qt_compat import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QFileDialog, QMessageBox, QApplication,
-    QLabel, QFont, QFrame, Qt, QCheckBox, QComboBox,
+    QLabel, QFont, QFrame, Qt, QCheckBox, QComboBox, QGroupBox,
 )
 from gui import theme
 from gui.gauge_manager import GaugeManager, GAUGE_COLORS as _GAUGE_COLORS
@@ -130,12 +130,35 @@ class ResultsPanel(QWidget):
             "Simulation polarization mode.\n"
             "Non-scalar modes use VectorImagingEngine (core.vector_imaging).")
 
-        for w in (self.export_png_btn, self.export_pdf_btn, self.copy_table_btn,
-                  self.add_gauge_btn, self.clear_gauges_btn,
+        # ── Export group ──
+        _grp_export = QGroupBox("내보내기")
+        _grp_export_lay = QVBoxLayout(_grp_export)
+        _grp_export_lay.setSpacing(4)
+        _grp_export_lay.setContentsMargins(6, 6, 6, 6)
+        for w in (self.export_png_btn, self.export_pdf_btn, self.copy_table_btn):
+            _grp_export_lay.addWidget(w)
+        btn_col.addWidget(_grp_export)
+
+        # ── Gauge group ──
+        _grp_gauge = QGroupBox("게이지 도구")
+        _grp_gauge_lay = QVBoxLayout(_grp_gauge)
+        _grp_gauge_lay.setSpacing(4)
+        _grp_gauge_lay.setContentsMargins(6, 6, 6, 6)
+        for w in (self.add_gauge_btn, self.clear_gauges_btn,
                   self.lock_h_chk, self.lock_v_chk,
-                  self.show_resist_chk, self.gauge_status,
-                  pol_lbl, self.polarization_combo):
-            btn_col.addWidget(w)
+                  self.show_resist_chk, self.gauge_status):
+            _grp_gauge_lay.addWidget(w)
+        btn_col.addWidget(_grp_gauge)
+
+        # ── Mode group ──
+        _grp_mode = QGroupBox("표시 옵션")
+        _grp_mode_lay = QVBoxLayout(_grp_mode)
+        _grp_mode_lay.setSpacing(4)
+        _grp_mode_lay.setContentsMargins(6, 6, 6, 6)
+        _grp_mode_lay.addWidget(pol_lbl)
+        _grp_mode_lay.addWidget(self.polarization_combo)
+        btn_col.addWidget(_grp_mode)
+
         btn_col.addStretch()
         bottom.addWidget(btn_frame)
 
