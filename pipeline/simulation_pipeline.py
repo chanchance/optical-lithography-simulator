@@ -59,6 +59,9 @@ class SimulationPipeline:
         Returns:
             SimResult with aerial image and metrics
         """
+        from fileio.config_validator import ConfigValidator
+        ConfigValidator().validate_or_raise(config)
+
         result = SimResult(config=config, layout_path=layout_path or '')
         result.status = 'running'
 

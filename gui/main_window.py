@@ -240,6 +240,37 @@ class MainWindow(QMainWindow):
         config = self.param_panel.get_config()
         layout_path = self.layout_panel.get_layout_path()
 
+        # Validate config and show errors/warnings before launching
+        from fileio.config_validator import ConfigValidator
+        validation_results = ConfigValidator().validate(config)
+        errors = [e for e in validation_results if e.severity == 'error']
+        warnings = [e for e in validation_results if e.severity == 'warning']
+        if errors or warnings:
+            lines = []
+            if errors:
+                lines.append('<span style="color:red;font-weight:bold;">Errors (simulation blocked):</span>')
+                for e in errors:
+                    lines.append('<span style="color:red;">&bull; {}: {}</span>'.format(e.field, e.message))
+            if warnings:
+                lines.append('<span style="color:#b8860b;font-weight:bold;">Warnings:</span>')
+                for w in warnings:
+                    lines.append('<span style="color:#b8860b;">&bull; {}: {}</span>'.format(w.field, w.message))
+            msg_box = QMessageBox(self)
+            msg_box.setWindowTitle('Config Validation')
+            msg_box.setTextFormat(1)  # Qt.RichText
+            msg_box.setText('<br>'.join(lines))
+            if errors:
+                msg_box.setIcon(QMessageBox.Critical)
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                msg_box.exec()
+                return
+            else:
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+                msg_box.setDefaultButton(QMessageBox.Ok)
+                if msg_box.exec() != QMessageBox.Ok:
+                    return
+
         if not layout_path:
             answer = QMessageBox.question(
                 self, "No Layout Loaded",

@@ -1,0 +1,145 @@
+"""Config validation for simulation parameters."""
+from dataclasses import dataclass, field
+from typing import List
+
+
+@dataclass
+class ValidationError:
+    field: str      # e.g. "lithography.NA"
+    message: str    # e.g. "NA must be between 0 and 1.35"
+    severity: str   # "error" or "warning"
+
+
+class ConfigValidator:
+    def validate(self, config: dict) -> List[ValidationError]:
+        errors = []
+        errors.extend(self._validate_lithography(config))
+        errors.extend(self._validate_simulation(config))
+        errors.extend(self._validate_resist(config))
+        errors.extend(self._validate_illumination(config))
+        return errors
+
+    def _validate_lithography(self, config: dict) -> List[ValidationError]:
+        errors = []
+        litho = config.get('lithography', {})
+
+        wl = litho.get('wavelength_nm', 193.0)
+        if wl <= 0:
+            errors.append(ValidationError('lithography.wavelength_nm',
+                'wavelength_nm must be > 0', 'error'))
+
+        na = litho.get('NA', 0.93)
+        if not (0 < na <= 1.35):
+            errors.append(ValidationError('lithography.NA',
+                'NA must be in (0, 1.35]', 'error'))
+
+        defocus = litho.get('defocus_nm', 0.0)
+        if not (-2000 <= defocus <= 2000):
+            errors.append(ValidationError('lithography.defocus_nm',
+                'defocus_nm must be in [-2000, 2000] nm', 'error'))
+
+        # EUV: NA > 0.33 is unusual
+        if wl <= 15.0 and na > 0.33:
+            errors.append(ValidationError('lithography.NA',
+                'NA > 0.33 is unusual for EUV (wavelength <= 15 nm)', 'warning'))
+
+        return errors
+
+    def _validate_simulation(self, config: dict) -> List[ValidationError]:
+        errors = []
+        sim = config.get('simulation', {})
+
+        grid_size = sim.get('grid_size', 256)
+        if not (64 <= grid_size <= 2048):
+            errors.append(ValidationError('simulation.grid_size',
+                'grid_size must be in [64, 2048]', 'error'))
+        elif (grid_size & (grid_size - 1)) != 0:
+            errors.append(ValidationError('simulation.grid_size',
+                'grid_size should be a power of 2 for FFT efficiency', 'warning'))
+
+        domain_nm = sim.get('domain_size_nm', 2000.0)
+        if domain_nm <= 0:
+            errors.append(ValidationError('simulation.domain_size_nm',
+                'domain_size_nm must be > 0', 'error'))
+        else:
+            litho = config.get('lithography', {})
+            na = litho.get('NA', 0.93)
+            wl = litho.get('wavelength_nm', 193.0)
+            if na > 0 and domain_nm < 5 * wl / na:
+                errors.append(ValidationError('simulation.domain_size_nm',
+                    'domain_size_nm is very small relative to wavelength/NA '
+                    '(< 5 * wavelength/NA = {:.1f} nm)'.format(5 * wl / na),
+                    'warning'))
+
+        return errors
+
+    def _validate_resist(self, config: dict) -> List[ValidationError]:
+        errors = []
+        resist = config.get('resist', {})
+
+        model = resist.get('model', 'threshold')
+        threshold = resist.get('threshold', 0.30)
+        if not (0 < threshold < 1):
+            errors.append(ValidationError('resist.threshold',
+                'threshold must be in (0, 1)', 'error'))
+
+        if model == 'dill':
+            A = resist.get('A', 0.8)
+            B = resist.get('B', 0.1)
+            C = resist.get('C', 0.01)
+            if A <= 0:
+                errors.append(ValidationError('resist.A',
+                    'Dill A must be > 0', 'error'))
+            if B < 0:
+                errors.append(ValidationError('resist.B',
+                    'Dill B must be >= 0', 'error'))
+            if C <= 0:
+                errors.append(ValidationError('resist.C',
+                    'Dill C must be > 0', 'error'))
+
+        elif model == 'ca':
+            qe = resist.get('quantum_efficiency', 0.5)
+            amp = resist.get('amplification', 50.0)
+            if not (0 < qe < 1):
+                errors.append(ValidationError('resist.quantum_efficiency',
+                    'quantum_efficiency must be in (0, 1)', 'error'))
+            if amp <= 0:
+                errors.append(ValidationError('resist.amplification',
+                    'amplification must be > 0', 'error'))
+
+        return errors
+
+    def _validate_illumination(self, config: dict) -> List[ValidationError]:
+        errors = []
+        illum = config.get('lithography', {}).get('illumination', {})
+
+        sigma_outer = illum.get('sigma_outer', 0.85)
+        sigma_inner = illum.get('sigma_inner', 0.55)
+
+        if not (0 < sigma_outer <= 1):
+            errors.append(ValidationError('lithography.illumination.sigma_outer',
+                'sigma_outer must be in (0, 1]', 'error'))
+
+        illum_type = illum.get('type', 'annular')
+        if illum_type == 'annular':
+            if sigma_inner >= sigma_outer:
+                errors.append(ValidationError('lithography.illumination.sigma_inner',
+                    'sigma_inner must be < sigma_outer for annular illumination', 'error'))
+            if sigma_inner < 0:
+                errors.append(ValidationError('lithography.illumination.sigma_inner',
+                    'sigma_inner must be >= 0', 'error'))
+
+        if illum_type == 'freeform':
+            pupil_size = illum.get('pupil_size', 0)
+            if pupil_size <= 0:
+                errors.append(ValidationError('lithography.illumination.pupil_size',
+                    'pupil_size must be > 0 for freeform illumination', 'error'))
+
+        return errors
+
+    def validate_or_raise(self, config: dict) -> None:
+        """Raise ValueError if any error-severity issues found."""
+        errors = [e for e in self.validate(config) if e.severity == 'error']
+        if errors:
+            msg = '\n'.join('  {}: {}'.format(e.field, e.message) for e in errors)
+            raise ValueError("Invalid simulation config:\n" + msg)
