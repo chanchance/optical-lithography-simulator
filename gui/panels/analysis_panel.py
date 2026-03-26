@@ -408,8 +408,10 @@ class AnalysisPanel(QWidget):
 
     def _plot_pw_from_bossung(self, curves):
         """Draw DOF vs EL process window ellipse from Bossung curve data."""
-        mid = len(curves) // 2
-        nominal = curves[mid]
+        # Find nominal curve: dose closest to 1.0, not blindly the middle index
+        # (middle index is wrong when the dose sweep is asymmetric around 1.0)
+        ni = min(range(len(curves)), key=lambda i: abs(curves[i].dose_factor - 1.0))
+        nominal = curves[ni]
         dof = nominal.depth_of_focus_nm
 
         # Compute true EL: dose range where CD at best focus stays within
@@ -422,7 +424,7 @@ class AnalysisPanel(QWidget):
                 cd_bf = float(np.interp(nominal.best_focus_nm,
                                         c.focus_points, c.cd_points))
                 cd_at_best.append((c.dose_factor, cd_bf))
-        nominal_cd = cd_at_best[mid][1] if mid < len(cd_at_best) else 0.0
+        nominal_cd = cd_at_best[ni][1] if ni < len(cd_at_best) else 0.0
         if nominal_cd > 0 and cd_at_best:
             in_window = [df for df, cd in cd_at_best
                          if cd > 0 and abs(cd - nominal_cd) / nominal_cd <= cd_tol_frac]
