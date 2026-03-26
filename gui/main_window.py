@@ -312,8 +312,12 @@ class MainWindow(QMainWindow):
                     "TE": "te", "TM": "tm",
                     "Circular-L": "circular_l", "Circular-R": "circular_r",
                 }
-                config.setdefault('simulation', {})['polarization'] = \
-                    pol_map.get(pol_text, 'scalar')
+                pol_val = pol_map.get(pol_text, 'unpolarized')
+                config.setdefault('simulation', {})['polarization'] = pol_val
+                # Selecting a vector polarization from the results panel must
+                # also activate the vector imaging engine — otherwise the
+                # polarization key has no effect because use_vector stays False.
+                config.setdefault('lithography', {})['use_vector'] = True
             except ImportError:
                 pass  # VectorImagingEngine unavailable — keep scalar
 
