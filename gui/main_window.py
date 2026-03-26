@@ -40,8 +40,10 @@ class _SimWorker(QObject):
             def on_progress(step, pct):
                 self.progress.emit(step, int(pct))
 
-            # Override mode in config
-            cfg = dict(self._config)
+            # Override mode in config (deep-copy simulation sub-dict so
+            # the caller's original config is never mutated)
+            import copy
+            cfg = copy.deepcopy(self._config)
             cfg.setdefault('simulation', {})['mode'] = self._mode
 
             result = pipeline.run(cfg, self._layout_path, on_progress,
