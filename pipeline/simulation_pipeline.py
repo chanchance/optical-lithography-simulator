@@ -229,7 +229,11 @@ class SimulationPipeline:
         engine = FourierOpticsEngine(engine_params)
         # Convert binary grid to complex transmission
         mask_complex = mask_grid.astype(np.complex128)
-        return engine.compute_aerial_image(mask_complex, source)
+        aerial_image = engine.compute_aerial_image(mask_complex, source)
+        dose_factor = litho.get('dose_factor', 1.0)
+        if dose_factor != 1.0:
+            aerial_image = aerial_image * dose_factor
+        return aerial_image
 
     def _step_apply_resist(self, config: Dict, aerial_image: np.ndarray) -> np.ndarray:
         """Apply resist model to aerial image, returning binary resist pattern."""
