@@ -552,6 +552,14 @@ class ParameterPanel(QWidget):
         self.sigma_inner_sb.setEnabled(text in ["Annular", "Quadrupole", "Quasar"])
         self.params_changed.emit()
 
+    def _on_hopkins_toggled(self, state):
+        self.n_kernels_sb.setEnabled(bool(state))
+        self.params_changed.emit()
+
+    def _on_vector_toggled(self, state):
+        self.polarization_combo.setEnabled(bool(state))
+        self.params_changed.emit()
+
     # ------------------------------------------------------------------
     # Defocus slider <-> spinbox sync
     # ------------------------------------------------------------------
@@ -592,6 +600,10 @@ class ParameterPanel(QWidget):
                 "aberrations": {
                     "zernike": [sb.value() for sb in self.zernike_sbs],
                 },
+                "use_hopkins": self.hopkins_cb.isChecked(),
+                "n_kernels": self.n_kernels_sb.value(),
+                "use_vector": self.vector_cb.isChecked(),
+                "polarization": self.polarization_combo.currentText().lower().replace(" ", "_"),
             },
             "simulation": {
                 "grid_size": int(self.grid_combo.currentText()),
@@ -684,6 +696,19 @@ class ParameterPanel(QWidget):
 
         analysis_cfg = config.get("analysis", {})
         self.cd_threshold_sb.setValue(analysis_cfg.get("cd_threshold", 0.30))
+
+        self.hopkins_cb.setChecked(litho.get("use_hopkins", False))
+        self.n_kernels_sb.setValue(litho.get("n_kernels", 10))
+        self.n_kernels_sb.setEnabled(litho.get("use_hopkins", False))
+        self.vector_cb.setChecked(litho.get("use_vector", False))
+        pol_rmap = {
+            "unpolarized": "Unpolarized", "x": "X", "y": "Y",
+            "te": "TE", "tm": "TM", "circular_l": "Circular L", "circular_r": "Circular R",
+        }
+        self.polarization_combo.setCurrentText(
+            pol_rmap.get(litho.get("polarization", "unpolarized"), "Unpolarized")
+        )
+        self.polarization_combo.setEnabled(litho.get("use_vector", False))
 
         # Mark as custom after loading
         self.preset_combo.blockSignals(True)

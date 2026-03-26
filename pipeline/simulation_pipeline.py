@@ -224,6 +224,10 @@ class SimulationPipeline:
             'grid_size': sim_cfg.get('grid_size', 256),
             'domain_size_nm': sim_cfg.get('domain_size_nm', 2000.0),
             'aberrations': litho.get('aberrations', {}),
+            'use_hopkins': litho.get('use_hopkins', False),
+            'n_kernels': litho.get('n_kernels', 10),
+            'use_vector': litho.get('use_vector', False),
+            'polarization': litho.get('polarization', 'unpolarized'),
         }
 
         engine = FourierOpticsEngine(engine_params)
