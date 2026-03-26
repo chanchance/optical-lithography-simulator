@@ -205,23 +205,16 @@ class LayoutReader:
 
         top_cell_name = cell.name
 
-        # Flatten hierarchy
+        # Extract polygons including full cell hierarchy
         if on_progress:
-            on_progress("Flattening hierarchy...", 20)
-
-        try:
-            flat_cell = cell.copy(name=top_cell_name + '_flat')
-            flat_cell.flatten()
-        except Exception:
-            flat_cell = cell
-
-        # Extract polygons - collect all first to know total count for progress
-        if on_progress:
-            on_progress("Extracting polygons...", 40)
+            on_progress("Extracting polygons...", 20)
 
         raw_by_layer: Dict[int, List[np.ndarray]] = {}
-        all_flat_polys = flat_cell.polygons
+        all_flat_polys = cell.get_polygons(apply_repetitions=True)
         total = len(all_flat_polys)
+
+        if on_progress:
+            on_progress("Extracting polygons...", 40)
 
         for idx, poly in enumerate(all_flat_polys):
             layer_num = poly.layer
