@@ -98,7 +98,13 @@ class ImagingSystem:
         sim.grid.sigma = sigma
         sim._precompute_update_coefficients()
 
-        fields = sim.run_simulation(on_progress)
+        # FDTD engine calls on_progress(fraction: float), but callers use
+        # on_progress(step_name: str, pct: int).  Wrap to avoid TypeError.
+        def _fdtd_progress(frac):
+            if on_progress:
+                on_progress('FDTD', int(frac * 100))
+
+        fields = sim.run_simulation(_fdtd_progress)
 
         # Extract intensity at image plane
         I = sim.get_intensity(fields)

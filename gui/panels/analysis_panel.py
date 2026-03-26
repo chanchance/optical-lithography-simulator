@@ -52,6 +52,7 @@ class _BossungWorker(QObject):
                 focus_range_nm=self._focus_range,
                 n_focus=17,
                 dose_factors=dose_factors,
+                on_progress=on_progress,
             )
             focus_arr = bossung_data['focus_nm']
             cd_by_dose = bossung_data['cd_by_dose']

@@ -69,7 +69,8 @@ class ParameterSweep:
 
     def bossung_sweep(self, base_config, layout_path,
                       focus_range_nm=400, n_focus=17,
-                      dose_factors=None) -> dict:
+                      dose_factors=None,
+                      on_progress: Optional[Callable] = None) -> dict:
         """Convenience: run Bossung sweep. Returns {'focus_nm': arr, 'cd_by_dose': dict}.
 
         Note: cd_by_dose maps dose_factor -> list[cd_nm]. Values may be 0.0 for
@@ -79,10 +80,18 @@ class ParameterSweep:
             dose_factors = [0.9, 0.95, 1.0, 1.05, 1.1]
         focus_values = np.linspace(-focus_range_nm/2, focus_range_nm/2, n_focus)
         cd_by_dose = {}
-        for dose in dose_factors:
+        n_doses = len(dose_factors)
+        for di, dose in enumerate(dose_factors):
             cfg = copy.deepcopy(base_config)
             self._set_nested(cfg, 'lithography.dose_factor', dose)
+
+            def _dose_progress(msg, pct, _di=di, _nd=n_doses):
+                if on_progress:
+                    overall = int((_di * 100 + pct) / _nd)
+                    on_progress(msg, overall)
+
             results = self.sweep_1d(cfg, layout_path,
-                                    'lithography.defocus_nm', focus_values.tolist())
+                                    'lithography.defocus_nm', focus_values.tolist(),
+                                    on_progress=_dose_progress)
             cd_by_dose[dose] = [r.cd_nm for r in results]
         return {'focus_nm': focus_values, 'cd_by_dose': cd_by_dose}
