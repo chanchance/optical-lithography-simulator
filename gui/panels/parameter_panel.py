@@ -204,6 +204,25 @@ class ParameterPanel(QWidget):
 
         layout.addWidget(mask_group)
 
+        # ---- Compute Backend ----
+        backend_group = QGroupBox("Compute Backend")
+        backend_group.setFlat(False)
+        backend_form = QFormLayout(backend_group)
+        backend_form.setContentsMargins(8, 12, 8, 8)
+
+        from core.gpu_backend import HAS_GPU
+        self.gpu_cb = QCheckBox()
+        self.gpu_cb.setChecked(False)
+        if HAS_GPU:
+            self.gpu_cb.setToolTip("Use CuPy GPU backend for FFT-accelerated imaging")
+        else:
+            self.gpu_cb.setEnabled(False)
+            self.gpu_cb.setToolTip("CuPy not installed — GPU acceleration unavailable")
+        self.gpu_cb.stateChanged.connect(self.params_changed)
+        backend_form.addRow("GPU Acceleration:", self.gpu_cb)
+
+        layout.addWidget(backend_group)
+
         # ---- Aberrations (Z1-Z37) — collapsible ----
         aber_group = QGroupBox("Aberrations (Z1–Z37)")
         aber_group.setCheckable(True)
@@ -482,6 +501,7 @@ class ParameterPanel(QWidget):
             "simulation": {
                 "grid_size": int(self.grid_combo.currentText()),
                 "domain_size_nm": self.domain_sb.value(),
+                "use_gpu": self.gpu_cb.isChecked(),
             },
             "rcwa": {
                 "enabled": self.rcwa_enabled_cb.isChecked(),
@@ -541,6 +561,8 @@ class ParameterPanel(QWidget):
         )
         self.grid_combo.setCurrentText(str(sim.get("grid_size", 256)))
         self.domain_sb.setValue(sim.get("domain_size_nm", 2000.0))
+        if self.gpu_cb.isEnabled():
+            self.gpu_cb.setChecked(sim.get("use_gpu", False))
 
         rcwa = config.get("rcwa", {})
         self.rcwa_enabled_cb.setChecked(rcwa.get("enabled", False))

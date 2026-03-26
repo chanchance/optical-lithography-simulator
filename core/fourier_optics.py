@@ -154,6 +154,7 @@ class FourierOpticsEngine:
         self.polarization = config.get('polarization', 'unpolarized')
         self.use_hopkins = config.get('use_hopkins', False)
         self.n_kernels = config.get('n_kernels', 10)
+        self.use_gpu = config.get('use_gpu', False)
 
         # Pixel size
         self.dx_nm = self.domain_size_nm / self.grid_size
@@ -213,14 +214,23 @@ class FourierOpticsEngine:
             source_points = source.get_source_points()
             return vec_engine.compute_aerial_image_vector(mask_fft, source_points, pol)
 
-        # Mask diffraction spectrum M(fx, fy) = FFT[t(x,y)]
-        M = np.fft.fft2(mask_transmission)
+        # Select compute backend (NumPy or CuPy)
+        if self.use_gpu:
+            from .gpu_backend import to_gpu, to_cpu, fft2 as _fft2, ifft2 as _ifft2
+            xp = None  # not needed directly; use backend functions
+        else:
+            to_gpu = lambda a: a  # noqa: E731
+            to_cpu = lambda a: a  # noqa: E731
+            _fft2 = np.fft.fft2
+            _ifft2 = np.fft.ifft2
 
-        # Get pupil function P(fx, fy)
-        P = self.projection_optic.pupil_function(self.FX, self.FY, self.defocus_nm)
+        # Transfer static arrays to device
+        mask_gpu = to_gpu(mask_transmission)
+        P_np = self.projection_optic.pupil_function(self.FX, self.FY, self.defocus_nm)
+        P_gpu = to_gpu(P_np)
 
         # Accumulate intensity from all source points
-        I_total = np.zeros((N, N), dtype=np.float64)
+        I_total = to_gpu(np.zeros((N, N), dtype=np.float64))
 
         source_points = source.get_source_points()
         NA_freq = self.NA / self.wavelength_nm  # NA in cycles/nm
@@ -228,7 +238,9 @@ class FourierOpticsEngine:
         # Pre-compute spatial coordinate grids (constant across source points)
         x_1d = np.arange(N) * self.dx_nm
         y_1d = np.arange(N) * self.dx_nm
-        X, Y = np.meshgrid(x_1d, y_1d, indexing='ij')
+        X_np, Y_np = np.meshgrid(x_1d, y_1d, indexing='ij')
+        X_gpu = to_gpu(X_np)
+        Y_gpu = to_gpu(Y_np)
 
         for sp in source_points:
             # Source plane wave direction: (ks_x, ks_y) in cycles/nm
@@ -238,18 +250,18 @@ class FourierOpticsEngine:
             # Shift mask spectrum for oblique illumination
             # M_shifted(fx,fy) = M(fx+ks_x, fy+ks_y)
             # Implement as phase ramp in spatial domain (shift theorem)
-            phase_ramp = np.exp(1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
-            t_shifted = mask_transmission * phase_ramp
-            M_shifted = np.fft.fft2(t_shifted)
+            phase_ramp = np.exp(1j * 2.0 * np.pi * (ks_x * X_np + ks_y * Y_np))
+            phase_gpu = to_gpu(phase_ramp)
+            M_shifted = _fft2(mask_gpu * phase_gpu)
 
-            # Apply pupil function
-            field_spectrum = M_shifted * P
-
-            # Inverse FFT to get image field
-            E_image = np.fft.ifft2(field_spectrum)
+            # Apply pupil function and IFFT
+            E_image = _ifft2(M_shifted * P_gpu)
 
             # Accumulate weighted intensity
-            I_total += sp.weight * np.abs(E_image)**2
+            I_total = I_total + sp.weight * (E_image.real**2 + E_image.imag**2)
+
+        # Back to CPU
+        I_total = to_cpu(I_total)
 
         # Normalize
         I_max = np.max(I_total)
