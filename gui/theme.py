@@ -107,6 +107,7 @@ def get_qss() -> str:
 
     QPushButton[objectName="secondary"] {{
         background: {BG_PRIMARY}; color: {ACCENT}; border: 1px solid {ACCENT};
+        min-height: 32px; border-radius: 8px; font-weight: 500;
     }}
     QPushButton[objectName="secondary"]:hover {{ background: #EBF2FF; }}
 
@@ -123,9 +124,11 @@ def get_qss() -> str:
     }}
     QGroupBox::title {{
         subcontrol-origin: margin;
-        left: 10px;
+        left: 12px;
         padding: 0 6px;
-        color: {TEXT_PRIMARY};
+        color: {TEXT_SECONDARY};
+        font-size: 11px;
+        font-weight: 700;
     }}
 
     /* === Inputs === */
@@ -190,11 +193,11 @@ def get_qss() -> str:
     QTextEdit {{
         border: 1px solid {BORDER};
         border-radius: 6px;
-        background: {BG_PRIMARY};
+        background: {BG_SECONDARY};
         color: {TEXT_PRIMARY};
-        font-family: "Menlo", "Consolas", "Courier New", monospace;
-        font-size: 12px;
-        padding: 4px;
+        font-family: "Menlo", "SF Mono", "Consolas", "Courier New", monospace;
+        font-size: 11px;
+        padding: 6px;
     }}
 
     /* === Progress Bar === */
@@ -310,6 +313,56 @@ def get_qss() -> str:
     QLabel[objectName="led_running"] {{ background: {WARNING}; border-radius: 6px; }}
     QLabel[objectName="led_done"] {{ background: {SUCCESS}; border-radius: 6px; }}
     QLabel[objectName="led_error"] {{ background: {DANGER}; border-radius: 6px; }}
+
+    /* === Radio Button === */
+    QRadioButton {{
+        spacing: 8px;
+        color: {TEXT_PRIMARY};
+        font-size: 13px;
+    }}
+    QRadioButton::indicator {{
+        width: 18px;
+        height: 18px;
+        border: 2px solid {BORDER};
+        border-radius: 9px;
+        background: {BG_PRIMARY};
+    }}
+    QRadioButton::indicator:checked {{
+        border: 5px solid {ACCENT};
+        background: {BG_PRIMARY};
+    }}
+    QRadioButton::indicator:hover {{ border-color: {ACCENT}; }}
+    QRadioButton:disabled {{ color: {TEXT_TERTIARY}; }}
+
+    /* === Checkbox === */
+    QCheckBox {{
+        spacing: 8px;
+        color: {TEXT_PRIMARY};
+        font-size: 13px;
+    }}
+    QCheckBox::indicator {{
+        width: 18px;
+        height: 18px;
+        border: 2px solid {BORDER};
+        border-radius: 4px;
+        background: {BG_PRIMARY};
+    }}
+    QCheckBox::indicator:checked {{
+        border-color: {ACCENT};
+        background: {ACCENT};
+    }}
+    QCheckBox::indicator:hover {{ border-color: {ACCENT}; }}
+    QCheckBox:disabled {{ color: {TEXT_TERTIARY}; }}
+
+    /* === Splitter hover === */
+    QSplitter::handle:hover {{ background: {ACCENT}; }}
+
+    /* === Frame (StyledPanel) === */
+    QFrame[frameShape="1"] {{
+        border: 1px solid {BORDER};
+        border-radius: 8px;
+        background: {BG_SECONDARY};
+    }}
     """
 
 
