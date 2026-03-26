@@ -93,10 +93,11 @@ class SimulationPipeline:
                 )
                 engine = RCWAEngine(rcwa_params)
                 nf = engine.apply_to_mask_grid(mask_grid, domain_nm)
-                mask_grid = np.real(nf)
+                mask_grid = nf  # keep complex; aerial image engine accepts complex masks
                 result.near_field_applied = True
 
-            result.mask_grid = mask_grid
+            # Store magnitude for display (imshow/contour require real arrays)
+            result.mask_grid = np.abs(mask_grid) if np.iscomplexobj(mask_grid) else mask_grid
             litho_cfg = config.get('lithography', {})
             wl_check = float(litho_cfg.get('wavelength_nm', 193.0))
             result.euv_mode = abs(wl_check - 13.5) < 0.5
