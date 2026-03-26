@@ -129,6 +129,7 @@ def create_resist(config: dict) -> BaseResist:
             quantum_efficiency=resist_cfg.get('quantum_efficiency', 0.5),
             amplification=resist_cfg.get('amplification', 50.0),
             peb_sigma_nm=resist_cfg.get('peb_sigma_nm', 25.0),
+            exposure_threshold=resist_cfg.get('exposure_threshold', 0.3),
             domain_size_nm=domain_nm,
         )
     else:
