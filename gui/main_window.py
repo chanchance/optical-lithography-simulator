@@ -8,7 +8,8 @@ import sys
 try:
     from PySide6.QtWidgets import (
         QMainWindow, QTabWidget, QStatusBar, QProgressBar,
-        QLabel, QFileDialog, QMessageBox, QApplication
+        QLabel, QFileDialog, QMessageBox, QApplication,
+        QToolBar, QStyle
     )
     from PySide6.QtCore import Qt, QThread, Signal, QObject
     from PySide6.QtGui import QAction
@@ -16,7 +17,8 @@ try:
 except ImportError:
     from PyQt5.QtWidgets import (
         QMainWindow, QTabWidget, QStatusBar, QProgressBar,
-        QLabel, QFileDialog, QMessageBox, QApplication
+        QLabel, QFileDialog, QMessageBox, QApplication,
+        QToolBar, QStyle
     )
     from PyQt5.QtCore import Qt, QThread, pyqtSignal as Signal, QObject
     from PyQt5.QtWidgets import QAction
@@ -91,6 +93,8 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._build_menu()
         self._build_statusbar()
+        self._build_toolbar()
+        self._apply_stylesheet()
 
     def _build_ui(self):
         from gui.panels.layout_panel import LayoutPanel
@@ -179,12 +183,118 @@ class MainWindow(QMainWindow):
         sb.addWidget(self.status_label, 1)
         sb.addPermanentWidget(self.status_progress)
 
+    def _build_toolbar(self):
+        tb = self.addToolBar("Main")
+        tb.setMovable(False)
+        tb.setToolButtonStyle(Qt.ToolButtonTextUnderIcon)
+
+        app_style = QApplication.instance().style()
+
+        # Open action
+        act_open = QAction(
+            app_style.standardIcon(QStyle.SP_DirOpenIcon),
+            "Open GDS/OAS", self
+        )
+        act_open.triggered.connect(self._open_layout)
+        tb.addAction(act_open)
+
+        tb.addSeparator()
+
+        # Run action
+        act_run = QAction(
+            app_style.standardIcon(QStyle.SP_MediaPlay),
+            "Run", self
+        )
+        act_run.triggered.connect(
+            lambda: (self.tabs.setCurrentIndex(2), self.sim_panel._on_run())
+        )
+        tb.addAction(act_run)
+
+        # Stop action
+        act_stop = QAction(
+            app_style.standardIcon(QStyle.SP_MediaStop),
+            "Stop", self
+        )
+        act_stop.triggered.connect(self._stop_simulation)
+        tb.addAction(act_stop)
+
+        tb.addSeparator()
+
+        # Source preview action
+        act_source = QAction(
+            app_style.standardIcon(QStyle.SP_FileDialogDetailedView),
+            "Source", self
+        )
+        act_source.triggered.connect(self._show_source_dialog)
+        tb.addAction(act_source)
+
+    def _apply_stylesheet(self):
+        style = """
+        QMainWindow { background: #f5f5f5; }
+        QTabWidget::pane { border: 1px solid #cccccc; background: #ffffff; }
+        QTabBar::tab {
+            background: #e0e0e0; padding: 6px 16px; margin-right: 2px;
+            border: 1px solid #cccccc; border-bottom: none;
+            border-radius: 3px 3px 0 0;
+        }
+        QTabBar::tab:selected {
+            background: #ffffff; border-bottom: 1px solid #ffffff;
+            font-weight: bold;
+        }
+        QTabBar::tab:hover { background: #ebebeb; }
+        QGroupBox {
+            font-weight: bold; border: 1px solid #cccccc; border-radius: 4px;
+            margin-top: 8px; padding-top: 4px;
+        }
+        QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }
+        QPushButton {
+            background: #e8e8e8; border: 1px solid #bbbbbb; padding: 5px 12px;
+            border-radius: 3px;
+        }
+        QPushButton:hover { background: #d8d8d8; }
+        QPushButton:pressed { background: #c8c8c8; }
+        QProgressBar {
+            border: 1px solid #bbbbbb; border-radius: 3px; text-align: center;
+        }
+        QProgressBar::chunk { background: #4e79a7; border-radius: 2px; }
+        QStatusBar { background: #e8e8e8; border-top: 1px solid #cccccc; }
+        QMenuBar { background: #f0f0f0; border-bottom: 1px solid #cccccc; }
+        QMenuBar::item:selected { background: #d0d0d0; }
+        QMenu::item:selected { background: #4e79a7; color: white; }
+        QListWidget { border: 1px solid #cccccc; border-radius: 3px; }
+        QListWidget::item:selected { background: #4e79a7; color: white; }
+        QTextEdit { border: 1px solid #cccccc; border-radius: 3px; background: #fafafa; }
+        QDoubleSpinBox, QSpinBox, QComboBox {
+            border: 1px solid #bbbbbb; border-radius: 3px;
+            padding: 2px 4px; background: white;
+        }
+        QToolBar {
+            background: #f0f0f0; border-bottom: 1px solid #cccccc;
+            spacing: 4px; padding: 2px 4px;
+        }
+        QToolBar::separator { width: 1px; background: #cccccc; margin: 4px 2px; }
+        QToolButton {
+            background: transparent; border: 1px solid transparent;
+            border-radius: 3px; padding: 3px 6px;
+        }
+        QToolButton:hover { background: #dde4ed; border-color: #b0bece; }
+        QToolButton:pressed { background: #c8d4e0; }
+        QSplitter::handle { background: #dddddd; }
+        QSplitter::handle:horizontal { width: 4px; }
+        """
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(style)
+
+    # ── Slots ─────────────────────────────────────────────────────────────────
+
     def _status(self, msg):
         self.status_label.setText(msg)
 
     def _open_layout(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Open Layout", "", "Layout files (*.gds *.gds2 *.oas);;All (*)")
+            self, "Open Layout", "",
+            "Layout files (*.gds *.gds2 *.oas);;All (*)")
         if path:
             self.layout_panel.load_layout(path)
             self.tabs.setCurrentIndex(0)

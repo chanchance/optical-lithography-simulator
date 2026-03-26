@@ -8,10 +8,14 @@ Supports:
 - Cell hierarchy flattening
 - Polygon extraction by layer
 - Coordinate conversion: GDS units → simulation grid
+- Progress callbacks for async UI integration
+- Max display polygon sampling to limit renderer load
 """
 import os
+import random
 import numpy as np
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Callable
+
 from dataclasses import dataclass, field
 
 try:
@@ -92,53 +96,85 @@ class LayoutReader:
             import warnings
             warnings.warn("gdstk not installed. Layout I/O will use mock data.")
 
-    def read_gds(self, filepath: str, top_cell: Optional[str] = None) -> LayoutData:
+    def read_gds(self, filepath: str, top_cell: Optional[str] = None,
+                 on_progress: Optional[Callable[[str, int], None]] = None,
+                 max_display_polygons: int = 50000) -> 'LayoutData':
         """
         Read GDS2 file.
         Args:
             filepath: Path to .gds file
             top_cell: Top cell name (auto-detected if None)
+            on_progress: Optional callback(step: str, percent: int)
+            max_display_polygons: Max polygons to store per layer for display
         Returns:
             LayoutData with all polygons in nm
         """
         if not os.path.exists(filepath):
             raise FileNotFoundError("GDS file not found: {}".format(filepath))
 
+        if on_progress:
+            on_progress("Reading file...", 5)
+
         if not HAS_GDSTK:
+            if on_progress:
+                on_progress("Done", 100)
             return self._create_mock_layout(filepath, 'gds')
 
         lib = gdstk.read_gds(filepath)
-        return self._process_library(lib, filepath, 'gds', top_cell)
+        return self._process_library(lib, filepath, 'gds', top_cell,
+                                     on_progress=on_progress,
+                                     max_display_polygons=max_display_polygons)
 
-    def read_oas(self, filepath: str, top_cell: Optional[str] = None) -> LayoutData:
+    def read_oas(self, filepath: str, top_cell: Optional[str] = None,
+                 on_progress: Optional[Callable[[str, int], None]] = None,
+                 max_display_polygons: int = 50000) -> 'LayoutData':
         """
         Read OASIS file.
         """
         if not os.path.exists(filepath):
             raise FileNotFoundError("OAS file not found: {}".format(filepath))
 
+        if on_progress:
+            on_progress("Reading file...", 5)
+
         if not HAS_GDSTK:
+            if on_progress:
+                on_progress("Done", 100)
             return self._create_mock_layout(filepath, 'oas')
 
         lib = gdstk.read_oas(filepath)
-        return self._process_library(lib, filepath, 'oas', top_cell)
+        return self._process_library(lib, filepath, 'oas', top_cell,
+                                     on_progress=on_progress,
+                                     max_display_polygons=max_display_polygons)
 
-    def read(self, filepath: str, top_cell: Optional[str] = None) -> LayoutData:
+    def read(self, filepath: str, top_cell: Optional[str] = None,
+             on_progress: Optional[Callable[[str, int], None]] = None,
+             max_display_polygons: int = 50000) -> 'LayoutData':
         """Auto-detect format from file extension."""
         ext = os.path.splitext(filepath)[1].lower()
         if ext in ('.gds', '.gds2'):
-            return self.read_gds(filepath, top_cell)
+            return self.read_gds(filepath, top_cell,
+                                 on_progress=on_progress,
+                                 max_display_polygons=max_display_polygons)
         elif ext in ('.oas', '.oasis'):
-            return self.read_oas(filepath, top_cell)
+            return self.read_oas(filepath, top_cell,
+                                 on_progress=on_progress,
+                                 max_display_polygons=max_display_polygons)
         else:
             # Try GDS first, then OAS
             try:
-                return self.read_gds(filepath, top_cell)
+                return self.read_gds(filepath, top_cell,
+                                     on_progress=on_progress,
+                                     max_display_polygons=max_display_polygons)
             except Exception:
-                return self.read_oas(filepath, top_cell)
+                return self.read_oas(filepath, top_cell,
+                                     on_progress=on_progress,
+                                     max_display_polygons=max_display_polygons)
 
     def _process_library(self, lib, filepath: str, fmt: str,
-                          top_cell: Optional[str]) -> LayoutData:
+                          top_cell: Optional[str],
+                          on_progress: Optional[Callable[[str, int], None]] = None,
+                          max_display_polygons: int = 50000) -> 'LayoutData':
         """Process gdstk Library into LayoutData."""
         # Get units (convert to nm)
         unit = getattr(lib, 'unit', 1e-6)   # Default: 1 micron
@@ -151,6 +187,8 @@ class LayoutReader:
         # Find top cell
         cells = lib.cells
         if not cells:
+            if on_progress:
+                on_progress("Done", 100)
             return self._create_mock_layout(filepath, fmt)
 
         if top_cell:
@@ -167,28 +205,62 @@ class LayoutReader:
 
         top_cell_name = cell.name
 
-        # Flatten hierarchy and extract polygons
+        # Flatten hierarchy
+        if on_progress:
+            on_progress("Flattening hierarchy...", 20)
+
         try:
             flat_cell = cell.copy(name=top_cell_name + '_flat')
             flat_cell.flatten()
         except Exception:
             flat_cell = cell
 
-        polygons_by_layer = {}
-        layers = {}
+        # Extract polygons - collect all first to know total count for progress
+        if on_progress:
+            on_progress("Extracting polygons...", 40)
 
-        for poly in flat_cell.polygons:
+        raw_by_layer: Dict[int, List[np.ndarray]] = {}
+        all_flat_polys = flat_cell.polygons
+        total = len(all_flat_polys)
+
+        for idx, poly in enumerate(all_flat_polys):
             layer_num = poly.layer
             pts = np.array(poly.points) * unit_nm  # Convert to nm
 
-            if layer_num not in polygons_by_layer:
-                polygons_by_layer[layer_num] = []
-            polygons_by_layer[layer_num].append(pts)
+            if layer_num not in raw_by_layer:
+                raw_by_layer[layer_num] = []
+            raw_by_layer[layer_num].append(pts)
 
-        # Compute layer info
+            # Emit per-polygon progress from 40 -> 80
+            if on_progress and total > 0 and idx % max(1, total // 20) == 0:
+                pct = 40 + int(40 * idx / total)
+                on_progress("Extracting polygons...", pct)
+
+        # Apply per-layer budget sampling and compute layer info
+        if on_progress:
+            on_progress("Computing bounding boxes...", 90)
+
+        n_layers = len(raw_by_layer)
+        polygons_by_layer: Dict[int, List[np.ndarray]] = {}
+        layers: Dict[int, 'LayerInfo'] = {}
         all_coords = []
-        for layer_num, polys in polygons_by_layer.items():
-            layer_coords = np.vstack(polys)
+
+        layer_keys = sorted(raw_by_layer.keys())
+        per_layer_budget = max(1, max_display_polygons // max(1, n_layers))
+
+        for li, layer_num in enumerate(layer_keys):
+            polys = raw_by_layer[layer_num]
+            real_count = len(polys)
+
+            # Sample if over budget
+            if real_count > per_layer_budget:
+                sampled = random.sample(polys, per_layer_budget)
+            else:
+                sampled = polys
+
+            polygons_by_layer[layer_num] = sampled
+
+            layer_coords = np.vstack(polys)  # Use all polys for bbox accuracy
             all_coords.append(layer_coords)
             bbox = BoundingBox(
                 xmin=float(np.min(layer_coords[:, 0])),
@@ -199,7 +271,7 @@ class LayoutReader:
             layers[layer_num] = LayerInfo(
                 layer=layer_num,
                 datatype=0,
-                n_polygons=len(polys),
+                n_polygons=real_count,  # Original count, not sampled
                 bbox=bbox
             )
 
@@ -215,6 +287,9 @@ class LayoutReader:
         else:
             bbox = BoundingBox(0, 0, 1000, 1000)
 
+        if on_progress:
+            on_progress("Done", 100)
+
         return LayoutData(
             filepath=filepath,
             format=fmt,
@@ -226,7 +301,7 @@ class LayoutReader:
             bounding_box=bbox
         )
 
-    def _create_mock_layout(self, filepath: str, fmt: str) -> LayoutData:
+    def _create_mock_layout(self, filepath: str, fmt: str) -> 'LayoutData':
         """Create mock layout data for testing when gdstk unavailable."""
         # Simple line/space pattern
         N_polys = 5
@@ -324,7 +399,7 @@ class MaskGridGenerator:
             mask[xmin:xmax+1, ymin:ymax+1] = True
             return mask
 
-    def get_simulation_domain(self, layout: LayoutData,
+    def get_simulation_domain(self, layout: 'LayoutData',
                                center_nm: Optional[Tuple[float, float]] = None,
                                layers: Optional[List[int]] = None) -> np.ndarray:
         """
