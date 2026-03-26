@@ -49,6 +49,12 @@ class ConfigValidator:
                 'EUV wavelength with NA > 0.55 is unusually high (typical EUV NA <= 0.33)',
                 'warning'))
 
+        # Hopkins TCC and vector imaging are mutually exclusive — Hopkins wins
+        if litho.get('use_hopkins', False) and litho.get('use_vector', False):
+            errors.append(ValidationError('lithography.use_vector',
+                'Hopkins TCC and vector imaging are both enabled; '
+                'Hopkins TCC takes priority (vector mode will be ignored)', 'warning'))
+
         return errors
 
     def _validate_simulation(self, config: dict) -> List[ValidationError]:
