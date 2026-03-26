@@ -327,7 +327,13 @@ class MaskFactory:
             mask.set_binary(grid)
 
         else:
-            # Default: fully clear
+            import warnings
+            _known = ('line_space', 'contact_hole', 'isolated_line', 'checkerboard')
+            warnings.warn(
+                "Unknown pattern_type {!r}. Supported: {}. "
+                "Returning fully clear mask.".format(pattern_type, _known),
+                stacklevel=2,
+            )
             mask.set_binary(np.ones((N, N)))
 
         return mask
