@@ -67,13 +67,15 @@ class ProjectionOptic:
         self._zernike_aber: Optional[ZernikeAberration] = None
 
         if aberrations:
-            if any(isinstance(k, str) for k in aberrations):
-                # Old W0xx string-key format — keep legacy path
-                self._legacy_aber = _LegacyZernikeAberrations(aberrations)
-            elif 'zernike' in aberrations:
+            if 'zernike' in aberrations:
                 # New format: {"zernike": [c1, c2, ..., c37]}
+                # Must be checked BEFORE the generic string-key test because
+                # 'zernike' is itself a string key.
                 self._zernike_aber = ZernikeAberration.from_list(
                     aberrations['zernike'])
+            elif any(isinstance(k, str) for k in aberrations):
+                # Old W0xx string-key format — keep legacy path
+                self._legacy_aber = _LegacyZernikeAberrations(aberrations)
             else:
                 # Integer key format: {1: c1, 2: c2, ...}
                 self._zernike_aber = ZernikeAberration(
