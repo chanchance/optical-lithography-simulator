@@ -246,20 +246,20 @@ class VectorImagingEngine:
         # mask_spatial is constant across all source points and polarizations
         mask_spatial = np.fft.ifft2(mask_fft)
 
-        for pol, pol_w in zip(pol_list, pol_weights):
-            for sp in source_points:
-                # Source k-vector in cycles/nm
-                ks_x = sp.kx * NA_freq
-                ks_y = sp.ky * NA_freq
+        for sp in source_points:
+            # Source k-vector in cycles/nm
+            ks_x = sp.kx * NA_freq
+            ks_y = sp.ky * NA_freq
 
+            # Shift mask spectrum once per source point (independent of polarization)
+            # FFT{t(x,y) * exp(-j2π(ksx*x + ksy*y))} = M(fx + ksx, fy + ksy)
+            # (negative sign — see fourier_optics.py for derivation)
+            phase_ramp = np.exp(-1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
+            M_shifted = np.fft.fft2(mask_spatial * phase_ramp)
+
+            for pol, pol_w in zip(pol_list, pol_weights):
                 # Input Jones vector for this polarization + source direction
                 J_in = self._jones_vector_for_source(pol, sp.kx, sp.ky)
-
-                # Shift mask spectrum for oblique illumination:
-                # FFT{t(x,y) * exp(-j2π(ksx*x + ksy*y))} = M(fx + ksx, fy + ksy)
-                # (negative sign — see fourier_optics.py for derivation)
-                phase_ramp = np.exp(-1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
-                M_shifted = np.fft.fft2(mask_spatial * phase_ramp)
 
                 # Apply Jones pupil: E_out = J @ J_in * M_shifted
                 # J_in = (Jin_x, Jin_y)
