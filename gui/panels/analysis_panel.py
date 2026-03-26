@@ -59,16 +59,33 @@ class _BossungWorker(QObject):
             curves = []
             for dose, cd_vals in cd_by_dose.items():
                 cd_arr = np.array(cd_vals)
+                # Filter out zero-CD points (unresolved features at extreme defocus)
+                valid_mask = cd_arr > 0
+                valid_focus = focus_arr[valid_mask]
+                valid_cd = cd_arr[valid_mask]
                 try:
-                    coeffs = np.polyfit(focus_arr, cd_arr, 2)
-                    best_focus = -coeffs[1] / (2 * coeffs[0]) if coeffs[0] != 0 else 0.0
-                    best_focus = float(np.clip(best_focus, focus_arr[0], focus_arr[-1]))
+                    if len(valid_focus) >= 3:
+                        coeffs = np.polyfit(valid_focus, valid_cd, 2)
+                        best_focus = -coeffs[1] / (2 * coeffs[0]) if coeffs[0] != 0 else 0.0
+                        best_focus = float(np.clip(best_focus, focus_arr[0], focus_arr[-1]))
+                    elif len(valid_focus) > 0:
+                        # Fewer than 3 valid points: use focus at maximum non-zero CD
+                        best_focus = float(valid_focus[np.argmax(valid_cd)])
+                    else:
+                        best_focus = float(focus_arr[len(focus_arr) // 2])
                 except Exception:
                     best_focus = float(focus_arr[len(focus_arr) // 2])
-                cd_nominal = float(cd_arr[len(cd_arr) // 2])
-                tol = cd_nominal * self._cd_tol / 100.0
-                in_window = np.abs(cd_arr - cd_nominal) <= tol
-                dof = float(np.sum(in_window) * (self._focus_range / max(len(focus_arr) - 1, 1)))
+                # Use max non-zero CD as nominal to avoid tol=0 when midpoint is unresolved
+                if len(valid_cd) > 0:
+                    cd_nominal = float(np.max(valid_cd))
+                else:
+                    cd_nominal = float(cd_arr[len(cd_arr) // 2])
+                if cd_nominal > 0 and len(valid_focus) >= 3:
+                    tol = cd_nominal * self._cd_tol / 100.0
+                    in_window = np.abs(cd_arr - cd_nominal) <= tol
+                    dof = float(np.sum(in_window) * (self._focus_range / max(len(focus_arr) - 1, 1)))
+                else:
+                    dof = 0.0
                 curves.append(BossungCurve(
                     dose_factor=dose,
                     focus_points=focus_arr.tolist(),

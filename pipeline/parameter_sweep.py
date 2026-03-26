@@ -70,7 +70,11 @@ class ParameterSweep:
     def bossung_sweep(self, base_config, layout_path,
                       focus_range_nm=400, n_focus=17,
                       dose_factors=None) -> dict:
-        """Convenience: run Bossung sweep. Returns {'focus': arr, 'cd_by_dose': dict}"""
+        """Convenience: run Bossung sweep. Returns {'focus_nm': arr, 'cd_by_dose': dict}.
+
+        Note: cd_by_dose maps dose_factor -> list[cd_nm]. Values may be 0.0 for
+        unresolved features at extreme defocus points. Callers should filter
+        zero-CD points before fitting (e.g. parabolic/polyfit)."""
         if dose_factors is None:
             dose_factors = [0.9, 0.95, 1.0, 1.05, 1.1]
         focus_values = np.linspace(-focus_range_nm/2, focus_range_nm/2, n_focus)
