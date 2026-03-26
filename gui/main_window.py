@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
         sim_menu = mb.addMenu("&Simulation")
         act_run = QAction("Run", self)
         act_run.setShortcut("F5")
-        act_run.triggered.connect(lambda: self.tabs.setCurrentIndex(2) or self.sim_panel._on_run())
+        act_run.triggered.connect(lambda: (self.tabs.setCurrentIndex(2), self.sim_panel._on_run()))
         sim_menu.addAction(act_run)
 
         act_stop = QAction("Stop", self)

@@ -393,7 +393,7 @@ class ParameterPanel(QWidget):
         dill_form.setContentsMargins(0, 0, 0, 0)
         dill_form.setSpacing(4)
         self.dill_A_sb = QDoubleSpinBox()
-        self.dill_A_sb.setRange(0.0, 5.0)
+        self.dill_A_sb.setRange(0.001, 5.0)   # validator requires A > 0
         self.dill_A_sb.setValue(0.8)
         self.dill_A_sb.setDecimals(3)
         self.dill_A_sb.setToolTip("Dill A: bleachable absorption coefficient [1/mJ·cm⁻²]")
@@ -433,7 +433,7 @@ class ParameterPanel(QWidget):
         ca_form.setContentsMargins(0, 0, 0, 0)
         ca_form.setSpacing(4)
         self.ca_qe_sb = QDoubleSpinBox()
-        self.ca_qe_sb.setRange(0.0, 1.0)
+        self.ca_qe_sb.setRange(0.001, 0.999)   # validator requires QE in (0, 1)
         self.ca_qe_sb.setValue(0.5)
         self.ca_qe_sb.setDecimals(3)
         self.ca_qe_sb.setToolTip("Quantum efficiency: acid molecules generated per absorbed photon")
