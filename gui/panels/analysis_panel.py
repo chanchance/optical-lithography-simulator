@@ -411,8 +411,24 @@ class AnalysisPanel(QWidget):
         mid = len(curves) // 2
         nominal = curves[mid]
         dof = nominal.depth_of_focus_nm
-        dose_factors = [c.dose_factor for c in curves]
-        el_pct = (max(dose_factors) - min(dose_factors)) * 100.0
+
+        # Compute true EL: dose range where CD at best focus stays within
+        # ±cd_tolerance of nominal CD.  Interpolating cd_points at the
+        # nominal best_focus_nm gives CD for each dose curve at that focus.
+        cd_tol_frac = self.cd_tol_sb.value() / 100.0
+        cd_at_best = []
+        for c in curves:
+            if len(c.focus_points) >= 2:
+                cd_bf = float(np.interp(nominal.best_focus_nm,
+                                        c.focus_points, c.cd_points))
+                cd_at_best.append((c.dose_factor, cd_bf))
+        nominal_cd = cd_at_best[mid][1] if mid < len(cd_at_best) else 0.0
+        if nominal_cd > 0 and cd_at_best:
+            in_window = [df for df, cd in cd_at_best
+                         if cd > 0 and abs(cd - nominal_cd) / nominal_cd <= cd_tol_frac]
+            el_pct = (max(in_window) - min(in_window)) * 100.0 if len(in_window) >= 2 else 0.0
+        else:
+            el_pct = 0.0
 
         ax = self.ax_pw
         ax.clear()

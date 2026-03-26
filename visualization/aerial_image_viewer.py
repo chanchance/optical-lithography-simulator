@@ -144,7 +144,7 @@ class AerialImageViewer:
         ax.set_ylabel('Normalized Intensity')
         ax.set_title('Intensity Cross-Section (direction={})'.format(direction))
         ax.legend()
-        ax.set_ylim(0, 1.05)
+        ax.set_ylim(0, max(1.0, float(profile.max())) * 1.05)
         ax.grid(True, alpha=0.3)
 
         return ax

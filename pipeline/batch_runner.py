@@ -1,6 +1,6 @@
 """
 Batch simulation runner for parameter sweeps.
-Supports parallel execution via multiprocessing.
+Currently executes sequentially; n_workers is reserved for future use.
 """
 import os
 import csv
