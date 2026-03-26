@@ -93,6 +93,7 @@ class MainWindow(QMainWindow):
         from gui.panels.parameter_panel import ParameterPanel
         from gui.panels.simulation_panel import SimulationPanel
         from gui.panels.results_panel import ResultsPanel
+        from gui.panels.analysis_panel import AnalysisPanel
 
         self.setMinimumSize(900, 650)
         self.tabs = QTabWidget()
@@ -102,11 +103,13 @@ class MainWindow(QMainWindow):
         self.param_panel = ParameterPanel()
         self.sim_panel = SimulationPanel()
         self.results_panel = ResultsPanel()
+        self.analysis_panel = AnalysisPanel()
 
         self.tabs.addTab(self.layout_panel, "Layout")
         self.tabs.addTab(self.param_panel, "Parameters")
         self.tabs.addTab(self.sim_panel, "Simulation")
         self.tabs.addTab(self.results_panel, "Results")
+        self.tabs.addTab(self.analysis_panel, "Analysis")
 
         # Wire signals
         self.sim_panel.run_requested.connect(self._run_simulation)
@@ -278,6 +281,7 @@ class MainWindow(QMainWindow):
             self._status("Simulation complete — CD={:.1f} nm, NILS={:.3f}".format(
                 result.cd_nm, result.nils))
             self.results_panel.show_result(result)
+            self.analysis_panel.set_result(result)
             self.tabs.setCurrentIndex(3)
         else:
             self._status("Simulation failed: " + result.error_msg)
