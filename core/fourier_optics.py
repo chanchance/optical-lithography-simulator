@@ -134,6 +134,8 @@ class FourierOpticsEngine:
         self.defocus_nm = config.get('defocus_nm', 0.0)
         self.grid_size = config.get('grid_size', 256)
         self.domain_size_nm = config.get('domain_size_nm', 2000.0)
+        self.use_vector = config.get('use_vector', False)
+        self.polarization = config.get('polarization', 'unpolarized')
 
         # Pixel size
         self.dx_nm = self.domain_size_nm / self.grid_size
@@ -176,6 +178,15 @@ class FourierOpticsEngine:
         if mask_transmission.shape != (N, N):
             raise ValueError(
                 "Mask must be {}x{}, got {}".format(N, N, mask_transmission.shape))
+
+        # Delegate to vector imaging engine when use_vector=True
+        if self.use_vector:
+            from .vector_imaging import VectorImagingEngine, Polarization
+            vec_engine = VectorImagingEngine(self.config)
+            pol = Polarization(self.polarization)
+            mask_fft = np.fft.fft2(mask_transmission)
+            source_points = source.get_source_points()
+            return vec_engine.compute_aerial_image_vector(mask_fft, source_points, pol)
 
         # Mask diffraction spectrum M(fx, fy) = FFT[t(x,y)]
         M = np.fft.fft2(mask_transmission)
