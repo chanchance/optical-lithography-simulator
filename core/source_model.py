@@ -227,6 +227,60 @@ class QuasarSource(BaseSource):
                 for p in all_points]
 
 
+class DipoleSource(BaseSource):
+    """
+    Dipole illumination: two symmetric annular arc spots in the pupil.
+    Used for line/space features along one direction.
+
+    orientation='x': poles at ±x (left/right, for horizontal lines)
+    orientation='y': poles at ±y (top/bottom, for vertical lines)
+    sigma_center: radial distance of pole center from origin (0.0-1.0)
+    sigma_outer/inner: annular ring bounds of each spot
+    opening_angle_deg: full angular width of each spot (default 30°)
+    """
+
+    def __init__(self, NA: float, sigma_center: float,
+                 sigma_outer: float, sigma_inner: float,
+                 wavelength_nm: float,
+                 orientation: str = 'x',
+                 opening_angle_deg: float = 30.0,
+                 N_points: int = 4, polarization: str = 'unpolarized'):
+        super().__init__(NA, wavelength_nm, N_points, polarization)
+        self.sigma_center = sigma_center
+        self.sigma_outer = sigma_outer
+        self.sigma_inner = sigma_inner
+        self.orientation = orientation.lower()
+        self.opening_angle_deg = opening_angle_deg
+
+    def _compute_points(self) -> List[SourcePoint]:
+        # Pole center angles based on orientation
+        if self.orientation == 'y':
+            pole_angles = [np.pi / 2, 3 * np.pi / 2]   # top / bottom
+        else:
+            pole_angles = [0.0, np.pi]                  # right / left (default x)
+
+        half_angle = np.radians(self.opening_angle_deg / 2.0)
+        n_r = max(3, self.N_points * 2)
+        n_a = max(6, self.N_points * 4)
+
+        r_arr = np.linspace(self.sigma_inner, self.sigma_outer, n_r)
+        r_arr = r_arr[r_arr >= 0]
+
+        all_points = []
+        for pole_angle in pole_angles:
+            for r in r_arr:
+                for dt in np.linspace(-half_angle, half_angle, n_a):
+                    angle = pole_angle + dt
+                    kx = r * np.cos(angle)
+                    ky = r * np.sin(angle)
+                    all_points.append((kx, ky))
+
+        n_pts = max(1, len(all_points))
+        weight = 1.0 / n_pts
+        return [SourcePoint(float(p[0]), float(p[1]), weight, self.polarization)
+                for p in all_points]
+
+
 class FreeformSource:
     """
     Freeform pupil-plane illumination source.
@@ -400,6 +454,20 @@ def create_source(config: dict):
                     sigma_c, sigma_r))
         return QuasarSource(NA, sigma_c, sigma_r,
                             illum.get('theta_q', 45.0), wl, N, pol)
+    elif source_type == 'dipole':
+        sigma_center = illum.get('sigma_center', 0.70)
+        sigma_outer = illum.get('sigma_outer', 0.85)
+        sigma_inner = illum.get('sigma_inner', 0.55)
+        orientation = illum.get('orientation', 'x')
+        opening_angle_deg = illum.get('opening_angle_deg', 30.0)
+        if sigma_inner >= sigma_outer:
+            raise ValueError(
+                "sigma_inner ({}) must be less than sigma_outer ({}) "
+                "for dipole illumination".format(sigma_inner, sigma_outer))
+        if orientation not in ('x', 'y'):
+            raise ValueError("orientation must be 'x' or 'y', got '{}'".format(orientation))
+        return DipoleSource(NA, sigma_center, sigma_outer, sigma_inner, wl,
+                            orientation, opening_angle_deg, N, pol)
     elif source_type == 'freeform':
         expr = illum.get('expression', '')
         path = illum.get('file', '')

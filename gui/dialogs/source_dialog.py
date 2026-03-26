@@ -51,7 +51,8 @@ class SourceDialog(QDialog):
         # Map config keys to combo items
         type_map = {
             'circular': 'Circular', 'annular': 'Annular',
-            'quadrupole': 'Quadrupole', 'quasar': 'Quasar', 'freeform': 'Freeform',
+            'quadrupole': 'Quadrupole', 'quasar': 'Quasar',
+            'dipole': 'Dipole', 'freeform': 'Freeform',
         }
         combo_text = type_map.get(illum.get('type', 'annular'), illum_type)
         idx = self.illum_combo.findText(combo_text)
@@ -90,7 +91,7 @@ class SourceDialog(QDialog):
         ctrl.setContentsMargins(10, 14, 10, 10)
 
         self.illum_combo = QComboBox()
-        self.illum_combo.addItems(["Circular", "Annular", "Quadrupole", "Quasar", "Freeform"])
+        self.illum_combo.addItems(["Circular", "Annular", "Quadrupole", "Quasar", "Dipole", "Freeform"])
         self.illum_combo.setCurrentText("Annular")
         self.illum_combo.currentTextChanged.connect(self._on_type_changed)
         ctrl.addRow("Type:", self.illum_combo)
@@ -110,6 +111,26 @@ class SourceDialog(QDialog):
         self.sigma_inner_sb.setSingleStep(0.05)
         self.sigma_inner_sb.valueChanged.connect(self._update_preview)
         ctrl.addRow("σ inner:", self.sigma_inner_sb)
+
+        # Dipole-specific controls
+        self._sigma_center_label = QLabel("σ center:")
+        self._sigma_center_sb = QDoubleSpinBox()
+        self._sigma_center_sb.setRange(0.01, 1.0)
+        self._sigma_center_sb.setValue(0.70)
+        self._sigma_center_sb.setDecimals(2)
+        self._sigma_center_sb.setSingleStep(0.05)
+        self._sigma_center_sb.valueChanged.connect(self._update_preview)
+        ctrl.addRow(self._sigma_center_label, self._sigma_center_sb)
+        self._sigma_center_label.setVisible(False)
+        self._sigma_center_sb.setVisible(False)
+
+        self._orientation_label = QLabel("Orientation:")
+        self._orientation_combo = QComboBox()
+        self._orientation_combo.addItems(["x", "y"])
+        self._orientation_combo.currentTextChanged.connect(self._update_preview)
+        ctrl.addRow(self._orientation_label, self._orientation_combo)
+        self._orientation_label.setVisible(False)
+        self._orientation_combo.setVisible(False)
 
         self._sigma_max_spin = QDoubleSpinBox()
         self._sigma_max_spin.setRange(0.01, 1.0)
@@ -227,10 +248,14 @@ class SourceDialog(QDialog):
 
     def _on_type_changed(self, text):
         is_freeform = (text == "Freeform")
+        is_dipole = (text == "Dipole")
         self._freeform_group.setVisible(is_freeform)
         self._sigma_max_label.setVisible(is_freeform)
         self._sigma_max_spin.setVisible(is_freeform)
-        # sigma_outer/inner controls less relevant for freeform but keep visible
+        self._sigma_center_label.setVisible(is_dipole)
+        self._sigma_center_sb.setVisible(is_dipole)
+        self._orientation_label.setVisible(is_dipole)
+        self._orientation_combo.setVisible(is_dipole)
         self._update_preview()
 
     # ── Freeform actions ──────────────────────────────────────────────────────
@@ -322,7 +347,7 @@ class SourceDialog(QDialog):
         )
         ax.add_patch(outer_ring)
 
-        if itype in ('annular', 'quadrupole', 'quasar'):
+        if itype in ('annular', 'quadrupole', 'quasar', 'dipole'):
             inner_ring = mpatches.Circle(
                 (0, 0), s_i, fill=False,
                 edgecolor='#3366cc', linewidth=1.2, linestyle='--', zorder=5
@@ -372,6 +397,17 @@ class SourceDialog(QDialog):
                             pts.append((kx, ky))
                             break
 
+                elif itype == 'dipole':
+                    sigma_c = self._sigma_center_sb.value()
+                    orientation = self._orientation_combo.currentText()
+                    rad = (s_o - s_i) / 2.0
+                    pole_positions = [(sigma_c, 0.0), (-sigma_c, 0.0)] if orientation == 'x' \
+                        else [(0.0, sigma_c), (0.0, -sigma_c)]
+                    for cx, cy in pole_positions:
+                        if (kx - cx) ** 2 + (ky - cy) ** 2 <= rad ** 2:
+                            pts.append((kx, ky))
+                            break
+
         if pts:
             kx_arr = np.array([p[0] for p in pts])
             ky_arr = np.array([p[1] for p in pts])
@@ -397,6 +433,7 @@ class SourceDialog(QDialog):
             'annular':    '#4e79a7',
             'quadrupole': '#f28e2b',
             'quasar':     '#e15759',
+            'dipole':     '#b07aa1',
             'freeform':   '#59a14f',
         }
         fill_color = fill_colors.get(itype, '#4e79a7')
@@ -452,6 +489,15 @@ class SourceDialog(QDialog):
                 ax.add_patch(mpatches.Circle(
                     (offset * math.cos(ang), offset * math.sin(ang)),
                     r, color=fill_color, alpha=0.75))
+
+        elif itype == 'dipole':
+            sigma_c = self._sigma_center_sb.value()
+            orientation = self._orientation_combo.currentText()
+            pole_positions = [(sigma_c, 0.0), (-sigma_c, 0.0)] if orientation == 'x' \
+                else [(0.0, sigma_c), (0.0, -sigma_c)]
+            r = (s_o - s_i) / 2.0
+            for cx, cy in pole_positions:
+                ax.add_patch(mpatches.Circle((cx, cy), r, color=fill_color, alpha=0.75))
 
         elif itype == 'freeform':
             self._draw_freeform_pupil(ax)
@@ -528,7 +574,16 @@ class SourceDialog(QDialog):
             "Annular":    "annular",
             "Quadrupole": "quadrupole",
             "Quasar":     "quasar",
+            "Dipole":     "dipole",
         }
+        if current_type == 'Dipole':
+            return {
+                'type': 'dipole',
+                'sigma_center': self._sigma_center_sb.value(),
+                'sigma_outer': self.sigma_outer_sb.value(),
+                'sigma_inner': self.sigma_inner_sb.value(),
+                'orientation': self._orientation_combo.currentText(),
+            }
         if current_type == 'Freeform':
             return {
                 'type': 'freeform',
