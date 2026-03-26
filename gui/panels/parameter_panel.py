@@ -691,6 +691,10 @@ class ParameterPanel(QWidget):
     # Config get / load
     # ------------------------------------------------------------------
 
+    def get_polarization(self) -> str:
+        """Return the selected polarization mode."""
+        return self.polarization_combo.currentText()
+
     def get_config(self):
         illum_map = {
             "Circular": "circular", "Annular": "annular",

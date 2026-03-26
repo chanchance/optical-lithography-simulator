@@ -215,7 +215,7 @@ class SimulationPanel(QWidget):
         if self._elapsed.isValid():
             elapsed_s = self._elapsed.elapsed() / 1000.0
             self.elapsed_label.setText("{:.1f}s".format(elapsed_s))
-            if percent > 0:
+            if percent > 10 and elapsed_s > 0.5:
                 eta_s = elapsed_s * (100 - percent) / percent
                 self.eta_label.setText("ETA: {:.0f}s".format(eta_s))
             else:
@@ -239,8 +239,11 @@ class SimulationPanel(QWidget):
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self._set_led('green')
-        self.elapsed_label.setText("")
+        if self._elapsed.isValid():
+            elapsed_s = self._elapsed.elapsed() / 1000.0
+            self.elapsed_label.setText("Elapsed: {:.1f}s".format(elapsed_s))
         self.eta_label.setText("")
+        self.status_label.setText("Simulation complete")
 
     def on_simulation_stopped(self):
         """Called when simulation is stopped by the user (not completed normally)."""
@@ -252,7 +255,7 @@ class SimulationPanel(QWidget):
 
     def on_simulation_error(self, msg):
         self.append_log("[ERROR] " + msg)
-        self.status_label.setText("Failed")
+        self.status_label.setText("Simulation failed")
         self.run_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self._set_led('red')

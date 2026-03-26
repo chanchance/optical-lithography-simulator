@@ -201,6 +201,8 @@ class MainWindow(QMainWindow):
         self.tabs.currentChanged.connect(self._workflow_bar.set_current)
         self._workflow_bar.step_clicked.connect(self.tabs.setCurrentIndex)
         self.analysis_panel.navigate_requested.connect(self.tabs.setCurrentIndex)
+        self._results_stale = False
+        self.param_panel.params_changed.connect(self._mark_stale)
 
     def _on_layout_loaded(self, path):
         basename = os.path.basename(path)
@@ -271,10 +273,14 @@ class MainWindow(QMainWindow):
         self.status_progress.setVisible(False)
         self.sim_info_label = QLabel("Mode: Fourier  |  Grid: 256×256  |  Points: 65,536")
         self.sim_info_label.setObjectName("caption")
+        self._stale_label = QLabel("⚠ Results may be stale")
+        self._stale_label.setStyleSheet("color: orange; font-weight: bold; padding: 0 6px;")
+        self._stale_label.setVisible(False)
         sb = self.statusBar()
         self.layout_label = QLabel("No layout loaded")
         self.layout_label.setObjectName("caption")
         sb.addWidget(self.status_label, 1)
+        sb.addPermanentWidget(self._stale_label)
         sb.addPermanentWidget(self.layout_label)
         sb.addPermanentWidget(self.sim_info_label)
         sb.addPermanentWidget(self.status_progress)
@@ -350,6 +356,11 @@ class MainWindow(QMainWindow):
     def _status(self, msg):
         self.status_label.setText(msg)
 
+    def _mark_stale(self):
+        if not self._results_stale:
+            self._results_stale = True
+            self._stale_label.setVisible(True)
+
     def _open_layout(self):
         path, _ = QFileDialog.getOpenFileName(
             self, "Open Layout", "",
@@ -380,14 +391,14 @@ class MainWindow(QMainWindow):
             config.setdefault('_film_stack', film_stack)
 
         # Inject polarization into config if non-scalar is selected
-        pol_text = self.results_panel.get_polarization()
-        if pol_text != "Scalar":
+        pol_text = self.param_panel.get_polarization()
+        if pol_text != "Unpolarized":
             try:
                 import core.vector_imaging  # availability check  # noqa: F401
                 pol_map = {
-                    "X-linear": "x", "Y-linear": "y",
+                    "X": "x", "Y": "y",
                     "TE": "te", "TM": "tm",
-                    "Circular-L": "circular_l", "Circular-R": "circular_r",
+                    "Circular L": "circular_l", "Circular R": "circular_r",
                 }
                 pol_val = pol_map.get(pol_text, 'unpolarized')
                 config.setdefault('simulation', {})['polarization'] = pol_val
@@ -468,6 +479,8 @@ class MainWindow(QMainWindow):
     def _on_sim_finished(self, result):
         self.sim_panel.on_simulation_done()
         self.status_progress.setVisible(False)
+        self._results_stale = False
+        self._stale_label.setVisible(False)
         if result.status == 'complete':
             self._status("Simulation complete — CD={:.1f} nm, NILS={:.3f}".format(
                 result.cd_nm, result.nils))

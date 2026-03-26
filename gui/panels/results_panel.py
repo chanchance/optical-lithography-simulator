@@ -12,6 +12,7 @@ from gui.qt_compat import (
 )
 from gui import theme
 from gui.gauge_manager import GaugeManager, GAUGE_COLORS as _GAUGE_COLORS
+from gui.plot_helpers import style_ax as _style_ax
 
 import matplotlib
 # Do NOT call matplotlib.use('Agg') — it conflicts with the Qt backend
@@ -21,6 +22,12 @@ from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 import matplotlib.ticker as ticker
+
+try:
+    from PySide6.QtGui import QShortcut, QKeySequence
+except ImportError:
+    from PyQt5.QtWidgets import QShortcut  # type: ignore
+    from PyQt5.QtGui import QKeySequence  # type: ignore
 
 class ResultsPanel(QWidget):
     def __init__(self, parent=None):
@@ -32,6 +39,7 @@ class ResultsPanel(QWidget):
         self._cb_aerial = None
         self._cb_wf = None
         self._show_resist_edge: bool = True
+        self._empty_state_text = None
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -121,17 +129,27 @@ class ResultsPanel(QWidget):
         self.lock_v_chk.toggled.connect(self._on_lock_v_toggled)
         self.show_resist_chk.toggled.connect(self._on_resist_edge_toggled)
 
-        pol_lbl = QLabel("Polarization:")
-        pol_lbl.setObjectName("caption")
-        self.polarization_combo = QComboBox()
-        self.polarization_combo.addItems([
-            "Scalar", "X-linear", "Y-linear", "TE", "TM", "Circular-L", "Circular-R"])
-        self.polarization_combo.setToolTip(
-            "Simulation polarization mode.\n"
-            "Non-scalar modes use VectorImagingEngine (core.vector_imaging).")
+        # ── Hero metrics card ──
+        metrics_card = QFrame()
+        metrics_card.setFrameShape(QFrame.StyledPanel)
+        metrics_layout = QVBoxLayout(metrics_card)
+        metrics_layout.setContentsMargins(12, 10, 12, 10)
+        metrics_layout.setSpacing(6)
+        self.cd_hero = QLabel("CD: —")
+        self.cd_hero.setStyleSheet(
+            "font-size: 20px; font-weight: 700; color: {};".format(theme.TEXT_PRIMARY))
+        self.nils_hero = QLabel("NILS: —")
+        self.nils_hero.setStyleSheet(
+            "font-size: 15px; font-weight: 600; color: {};".format(theme.TEXT_SECONDARY))
+        self.dof_hero = QLabel("DOF: —")
+        self.dof_hero.setStyleSheet(
+            "font-size: 13px; color: {};".format(theme.TEXT_SECONDARY))
+        for w in (self.cd_hero, self.nils_hero, self.dof_hero):
+            metrics_layout.addWidget(w)
+        btn_col.addWidget(metrics_card)
 
         # ── Export group ──
-        _grp_export = QGroupBox("내보내기")
+        _grp_export = QGroupBox("Export")
         _grp_export_lay = QVBoxLayout(_grp_export)
         _grp_export_lay.setSpacing(4)
         _grp_export_lay.setContentsMargins(6, 6, 6, 6)
@@ -140,26 +158,28 @@ class ResultsPanel(QWidget):
         btn_col.addWidget(_grp_export)
 
         # ── Gauge group ──
-        _grp_gauge = QGroupBox("게이지 도구")
+        _grp_gauge = QGroupBox("Gauge Tool")
         _grp_gauge_lay = QVBoxLayout(_grp_gauge)
         _grp_gauge_lay.setSpacing(4)
         _grp_gauge_lay.setContentsMargins(6, 6, 6, 6)
+        self._gauge_hint = QLabel("")
+        self._gauge_hint.setObjectName("caption")
+        self._gauge_hint.setStyleSheet(
+            "color: {}; padding: 4px;".format(theme.ACCENT))
+        self._gauge_hint.setWordWrap(True)
+        self._gauge_hint.hide()
         for w in (self.add_gauge_btn, self.clear_gauges_btn,
                   self.lock_h_chk, self.lock_v_chk,
-                  self.show_resist_chk, self.gauge_status):
+                  self.show_resist_chk, self.gauge_status,
+                  self._gauge_hint):
             _grp_gauge_lay.addWidget(w)
         btn_col.addWidget(_grp_gauge)
 
-        # ── Mode group ──
-        _grp_mode = QGroupBox("표시 옵션")
-        _grp_mode_lay = QVBoxLayout(_grp_mode)
-        _grp_mode_lay.setSpacing(4)
-        _grp_mode_lay.setContentsMargins(6, 6, 6, 6)
-        _grp_mode_lay.addWidget(pol_lbl)
-        _grp_mode_lay.addWidget(self.polarization_combo)
-        btn_col.addWidget(_grp_mode)
-
         btn_col.addStretch()
+
+        self._gauge_cancel_shortcut = QShortcut(QKeySequence("Escape"), self)
+        self._gauge_cancel_shortcut.activated.connect(self._cancel_gauge)
+
         bottom.addWidget(btn_frame)
 
         layout.addLayout(bottom, stretch=1)
@@ -167,25 +187,6 @@ class ResultsPanel(QWidget):
         self._clear_plots()
         self._draw_pw_strip()
 
-    # ------------------------------------------------------------------
-    # Theme helpers
-    # ------------------------------------------------------------------
-
-    def _style_ax(self, ax, title, image_panel=False):
-        ax.set_facecolor(theme.BG_SECONDARY)
-        ax.set_title(title, fontsize=theme.MPL_TITLE, fontweight='600',
-                     color=theme.TEXT_PRIMARY, pad=6)
-        ax.tick_params(colors=theme.TEXT_TERTIARY, labelsize=theme.MPL_TICK)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_color(theme.BORDER)
-        ax.spines['bottom'].set_color(theme.BORDER)
-        for label in ax.get_xticklabels() + ax.get_yticklabels():
-            label.set_color(theme.TEXT_TERTIARY)
-        if image_panel:
-            ax.grid(False)
-        else:
-            ax.grid(True, color=theme.MPL_GRID, linewidth=0.5, alpha=0.7, zorder=0)
 
     # ------------------------------------------------------------------
     # Gauge logic
@@ -195,8 +196,12 @@ class ResultsPanel(QWidget):
         self._gauge_mgr.toggle_mode(checked)
         if checked:
             self.canvas.setCursor(Qt.CrossCursor)
+            self._gauge_hint.setText(
+                "Click on Aerial Image to place first point (Esc to cancel)")
+            self._gauge_hint.show()
         else:
             self.canvas.unsetCursor()
+            self._gauge_hint.hide()
             if self._result is not None:
                 self._redraw_aerial()
                 self.canvas.draw()
@@ -216,11 +221,14 @@ class ResultsPanel(QWidget):
 
         if gauge is None:
             # First click — redraw with pending marker
+            self._gauge_hint.setText("Click second point to complete gauge")
             self.ax_aerial.plot(x, y, 'o', color='white', markersize=7,
                                 markeredgecolor='black', markeredgewidth=1.2, zorder=12)
             self.canvas.draw_idle()
         else:
             # Second click — extract profile and update plots
+            self._gauge_hint.setText(
+                "Click on Aerial Image to place first point (Esc to cancel)")
             profile, distances = self._gauge_mgr.extract_profile(
                 self._result.aerial_image, gauge['p1'], gauge['p2'])
             gauge['profile'] = profile
@@ -234,12 +242,26 @@ class ResultsPanel(QWidget):
             self.add_gauge_btn.setChecked(False)
             self._gauge_mgr.toggle_mode(False)
             self.canvas.unsetCursor()
+        self._gauge_hint.hide()
         self._gauge_mgr.clear()
         self.gauge_status.setText("")
         if self._result is not None:
             self._redraw_aerial()
             self._draw_cross_section()
             self.canvas.draw()
+
+    def _cancel_gauge(self):
+        """Escape key handler: cancel pending first gauge point."""
+        if not self._gauge_mgr.is_active():
+            return
+        if self._gauge_mgr.get_pending() is not None:
+            self._gauge_mgr.cancel_pending()
+            self._gauge_hint.setText(
+                "Click on Aerial Image to place first point (Esc to cancel)")
+            self.gauge_status.setText(self._gauge_mgr.status_message())
+            if self._result is not None:
+                self._redraw_aerial()
+                self.canvas.draw()
 
     def _on_lock_h_toggled(self, checked):
         self._gauge_mgr.lock_y = checked
@@ -276,7 +298,7 @@ class ResultsPanel(QWidget):
             (self.ax_pw,      "Process Window",          False),
         ]:
             ax.clear()
-            self._style_ax(ax, title, image_panel=is_img)
+            _style_ax(ax, title, image_panel=is_img)
             ax.set_axis_off()
         self.canvas.draw()
 
@@ -296,7 +318,13 @@ class ResultsPanel(QWidget):
             self._cb_aerial = None
 
         ax.clear()
-        self._style_ax(ax, "Aerial Image", image_panel=True)
+        _style_ax(ax, "Aerial Image", image_panel=True)
+
+        if self._gauge_mgr.is_active():
+            for spine in ax.spines.values():
+                spine.set_visible(True)
+                spine.set_color(theme.ACCENT)
+                spine.set_linewidth(2.0)
 
         result = self._result
         if result is None or result.aerial_image is None:
@@ -354,7 +382,7 @@ class ResultsPanel(QWidget):
         """Draw cross-section (ax_cs): gauge profiles when available, else center row."""
         ax = self.ax_cs
         ax.clear()
-        self._style_ax(ax, "Cross-section")
+        _style_ax(ax, "Cross-section")
 
         result = self._result
         if result is None or result.aerial_image is None:
@@ -478,7 +506,7 @@ class ResultsPanel(QWidget):
         """Redraw ax_overlay: aerial image + mask contour + optional resist edge."""
         ax = self.ax_overlay
         ax.clear()
-        self._style_ax(ax, "Overlay", image_panel=True)
+        _style_ax(ax, "Overlay", image_panel=True)
 
         if result.aerial_image is None:
             ax.set_axis_off()
@@ -519,7 +547,7 @@ class ResultsPanel(QWidget):
             self._cb_wf = None
 
         ax.clear()
-        self._style_ax(ax, "Wavefront Error (waves)", image_panel=True)
+        _style_ax(ax, "Wavefront Error (waves)", image_panel=True)
 
         try:
             aber = result.config["lithography"]["aberrations"]
@@ -583,6 +611,13 @@ class ResultsPanel(QWidget):
     def show_result(self, result):
         self._result = result
 
+        if self._empty_state_text is not None:
+            try:
+                self._empty_state_text.remove()
+            except Exception:
+                pass
+            self._empty_state_text = None
+
         if self._gauge_mgr.is_active():
             self.add_gauge_btn.setChecked(False)
             self._gauge_mgr.toggle_mode(False)
@@ -605,7 +640,7 @@ class ResultsPanel(QWidget):
 
         # ---- Mask ----
         self.ax_mask.clear()
-        self._style_ax(self.ax_mask, "Mask", image_panel=True)
+        _style_ax(self.ax_mask, "Mask", image_panel=True)
         if result.mask_grid is not None:
             xl, yl, ext = self._pixel_extent(result, result.mask_grid.shape)
             self.ax_mask.imshow(result.mask_grid, cmap='gray', origin='lower',
@@ -627,7 +662,25 @@ class ResultsPanel(QWidget):
         self._draw_cross_section()
 
         self._update_table(result)
+        self._update_hero(result)
         self._draw_pw_strip()
+
+    def _update_hero(self, result):
+        """Update the hero CD/NILS/DOF metric labels."""
+        cd = result.cd_nm
+        nils = result.nils
+        dof = result.metrics.get('dof_nm', 0.0)
+        self.cd_hero.setText("CD: {:.1f} nm".format(cd))
+        if nils >= 2.0:
+            nils_color = theme.SUCCESS
+        elif nils >= 1.0:
+            nils_color = theme.WARNING
+        else:
+            nils_color = theme.DANGER
+        self.nils_hero.setText("NILS: {:.3f}".format(nils))
+        self.nils_hero.setStyleSheet(
+            "font-size: 15px; font-weight: 600; color: {};".format(nils_color))
+        self.dof_hero.setText("DOF: {:.0f} nm".format(dof))
 
     # ------------------------------------------------------------------
     # Metrics table
@@ -692,7 +745,7 @@ class ResultsPanel(QWidget):
     def _draw_pw_strip(self):
         ax = self.ax_pw
         ax.clear()
-        self._style_ax(ax, "Process Window (CD vs Defocus)")
+        _style_ax(ax, "Process Window (CD vs Defocus)")
 
         if self._pw_history:
             defocuses = [p[0] for p in self._pw_history]
@@ -722,8 +775,8 @@ class ResultsPanel(QWidget):
     # ------------------------------------------------------------------
     # Export
     def get_polarization(self) -> str:
-        """Return the currently selected polarization mode string."""
-        return self.polarization_combo.currentText()
+        """Deprecated: polarization is now read from ParameterPanel."""
+        return "Scalar"
 
     # ------------------------------------------------------------------
 
