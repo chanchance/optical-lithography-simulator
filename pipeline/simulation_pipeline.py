@@ -94,6 +94,8 @@ class SimulationPipeline:
                 result.near_field_applied = True
 
             result.mask_grid = mask_grid
+            litho_cfg = config.get('lithography', config)
+            result.euv_mode = float(litho_cfg.get('wavelength_nm', 193.0)) == 13.5
             progress('Layout loaded', 20)
 
             # Step 2: Create illumination source
@@ -175,7 +177,21 @@ class SimulationPipeline:
         mask = MaskFactory.create_test_pattern(
             'line_space', N, domain_nm, period_px=N // 4
         )
-        return np.abs(mask.transmission).astype(np.float64)
+        mask_grid = np.abs(mask.transmission).astype(np.float64)
+
+        # Apply EUV multilayer mask model when wavelength is 13.5nm
+        litho_cfg = config.get('lithography', config)
+        if float(litho_cfg.get('wavelength_nm', 193.0)) == 13.5:
+            from core.euv_mask import EUVMultilayerMask, EUVFlare
+            euv_mask = EUVMultilayerMask()
+            mask_grid = euv_mask.apply_to_mask(mask_grid)
+            euv_cfg = config.get('euv', {})
+            flare_frac = euv_cfg.get('flare', None)
+            if flare_frac is not None:
+                flare = EUVFlare(flare_fraction=flare_frac)
+                mask_grid = flare.apply(mask_grid)
+
+        return mask_grid
 
     def _step_create_source(self, config: Dict):
         """Create illumination source from config."""
