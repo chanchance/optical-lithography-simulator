@@ -150,7 +150,7 @@ class ConfigValidator:
                 'sigma_outer must be in (0, 1]', 'error'))
 
         illum_type = illum.get('type', 'annular')
-        if illum_type in ('annular', 'dipole'):
+        if illum_type in ('annular', 'dipole', 'quadrupole', 'quasar'):
             if sigma_inner >= sigma_outer:
                 errors.append(ValidationError('lithography.illumination.sigma_inner',
                     'sigma_inner must be < sigma_outer for {} illumination'.format(illum_type),
