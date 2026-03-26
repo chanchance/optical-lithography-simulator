@@ -294,9 +294,10 @@ class MaskFactory:
         if pattern_type == 'line_space':
             # Alternating lines and spaces
             period = kwargs.get('period_px', N // 4)
+            half_period = max(1, period // 2)
             grid = np.zeros((N, N))
             for i in range(N):
-                if (i // (period // 2)) % 2 == 0:
+                if (i // half_period) % 2 == 0:
                     grid[i, :] = 1.0
             mask.set_binary(grid)
 

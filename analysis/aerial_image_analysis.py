@@ -210,8 +210,9 @@ class AerialImageAnalyzer:
         contrast = self.compute_contrast(intensity_2d)
 
         # CD from center horizontal profile (row at y=N//2, scanning along x)
-        N = self.grid_size
-        profile_x = intensity_2d[N // 2, :]
+        # Use actual image dimensions so we never index out of bounds
+        n_rows = intensity_2d.shape[0]
+        profile_x = intensity_2d[n_rows // 2, :]
         cd = self._cd_from_profile(profile_x, threshold)
 
         # NILS
