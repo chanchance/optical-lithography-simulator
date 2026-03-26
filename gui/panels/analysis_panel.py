@@ -57,40 +57,11 @@ class _BossungWorker(QObject):
             focus_arr = bossung_data['focus_nm']
             cd_by_dose = bossung_data['cd_by_dose']
 
+            from analysis.advanced_metrics import _fit_bossung_curve
             curves = []
             for dose, cd_vals in cd_by_dose.items():
                 cd_arr = np.array(cd_vals)
-                # Filter out zero-CD points (unresolved features at extreme defocus)
-                valid_mask = cd_arr > 0
-                valid_focus = focus_arr[valid_mask]
-                valid_cd = cd_arr[valid_mask]
-                try:
-                    if len(valid_focus) >= 3:
-                        coeffs = np.polyfit(valid_focus, valid_cd, 2)
-                        best_focus = -coeffs[1] / (2 * coeffs[0]) if coeffs[0] != 0 else 0.0
-                        best_focus = float(np.clip(best_focus, focus_arr[0], focus_arr[-1]))
-                    elif len(valid_focus) > 0:
-                        # Fewer than 3 valid points: use focus at maximum non-zero CD
-                        best_focus = float(valid_focus[np.argmax(valid_cd)])
-                    else:
-                        best_focus = float(focus_arr[len(focus_arr) // 2])
-                except Exception:
-                    best_focus = float(focus_arr[len(focus_arr) // 2])
-                # Use max non-zero CD as nominal to avoid tol=0 when midpoint is unresolved
-                if len(valid_cd) > 0:
-                    cd_nominal = float(np.max(valid_cd))
-                else:
-                    cd_nominal = float(cd_arr[len(cd_arr) // 2])
-                if cd_nominal > 0 and len(valid_focus) >= 3:
-                    tol = cd_nominal * self._cd_tol / 100.0
-                    in_window = np.abs(cd_arr - cd_nominal) <= tol
-                    in_window_focus = focus_arr[in_window]
-                    # DOF = span between first and last in-spec focus point.
-                    # Using count*step overcounts by one step for contiguous windows
-                    # and is incorrect for non-contiguous in-spec regions.
-                    dof = float(in_window_focus[-1] - in_window_focus[0]) if len(in_window_focus) >= 2 else 0.0
-                else:
-                    dof = 0.0
+                best_focus, dof = _fit_bossung_curve(focus_arr, cd_arr, self._cd_tol)
                 curves.append(BossungCurve(
                     dose_factor=dose,
                     focus_points=focus_arr.tolist(),
@@ -229,13 +200,13 @@ class AnalysisPanel(QWidget):
         form.addRow("Focus range:", self.focus_range_sb)
 
         self.dose_min_sb = QDoubleSpinBox()
-        self.dose_min_sb.setRange(0.5, 1.0)
+        self.dose_min_sb.setRange(0.5, 1.9)
         self.dose_min_sb.setValue(0.8)
         self.dose_min_sb.setSingleStep(0.05)
         form.addRow("Dose min:", self.dose_min_sb)
 
         self.dose_max_sb = QDoubleSpinBox()
-        self.dose_max_sb.setRange(1.0, 2.0)
+        self.dose_max_sb.setRange(0.5, 2.0)
         self.dose_max_sb.setValue(1.2)
         self.dose_max_sb.setSingleStep(0.05)
         form.addRow("Dose max:", self.dose_max_sb)
