@@ -169,7 +169,7 @@ class AerialImageAnalyzer:
 
         cds = []
         for img in aerial_images_vs_defocus:
-            cd = self.compute_cd(img, threshold)
+            cd = self.analyze(img, threshold).cd_nm
             cds.append(cd)
 
         cds = np.array(cds)
@@ -273,7 +273,7 @@ class AerialImageAnalyzer:
                     # Scale intensity by dose factor
                     dose_factor = 1.0 + dose / 100.0
                     img_dosed = img * dose_factor
-                    cd = self.compute_cd(img_dosed, threshold)
+                    cd = self.analyze(img_dosed, threshold).cd_nm
                     pw_grid[i, j] = abs(cd - cd_target_nm) <= cd_tolerance
 
         return pw_grid, np.array(dose_range_pct), np.array(focus_range_nm)
