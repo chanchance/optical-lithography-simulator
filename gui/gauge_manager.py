@@ -31,6 +31,11 @@ class GaugeManager:
         self.pending_p1 = None
         self._status = "Click point 1 on aerial image" if active else ""
 
+    def cancel_pending(self) -> None:
+        """Cancel a pending first gauge point."""
+        self.pending_p1 = None
+        self._status = "Click point 1 on aerial image" if self.gauge_mode else ""
+
     def on_click(self, x: float, y: float) -> Optional[dict]:
         """
         Handle a click on the aerial image.
