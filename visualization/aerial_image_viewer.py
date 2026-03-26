@@ -27,7 +27,7 @@ class AerialImageViewer:
         return [0, self.domain_size_nm, 0, self.domain_size_nm]
 
     def plot_aerial_image(self, intensity_2d: np.ndarray,
-                           ax=None, colormap: str = 'hot',
+                           ax=None, colormap: str = 'inferno',
                            title: str = 'Aerial Image',
                            show_colorbar: bool = True) -> plt.Axes:
         """
@@ -49,11 +49,13 @@ class AerialImageViewer:
                         interpolation='bilinear')
 
         if show_colorbar:
-            plt.colorbar(im, ax=ax, label='Normalized Intensity')
+            ax.get_figure().colorbar(im, ax=ax, label='Normalized Intensity', fraction=0.035, shrink=0.85, pad=0.03)
 
         ax.set_xlabel('X (nm)')
         ax.set_ylabel('Y (nm)')
         ax.set_title(title)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
 
         return ax
 
@@ -136,17 +138,19 @@ class AerialImageViewer:
             profile = intensity_2d[:, idx]   # column = scan along y at x=idx
             xlabel = 'Y (nm)'
 
-        ax.plot(x_nm, profile, 'b-', linewidth=2, label='Intensity')
-        ax.axhline(y=threshold, color='r', linestyle='--',
+        ax.plot(x_nm, profile, color='#3182F6', linewidth=1.8, label='Intensity')
+        ax.axhline(y=threshold, color='#F44336', linestyle='--',
                    label='Threshold ({:.2f})'.format(threshold))
-        ax.fill_between(x_nm, 0, profile, alpha=0.2, color='blue')
+        ax.fill_between(x_nm, 0, profile, alpha=0.12, color='#3182F6')
 
         ax.set_xlabel(xlabel)
         ax.set_ylabel('Normalized Intensity')
-        ax.set_title('Intensity Cross-Section (direction={})'.format(direction))
+        ax.set_title('Cross-section — {}'.format('X' if direction == 'x' else 'Y'))
         ax.legend()
         ax.set_ylim(0, max(1.0, float(profile.max())) * 1.05)
-        ax.grid(True, alpha=0.3)
+        ax.grid(True, color='#EAECEF', linewidth=0.5, alpha=0.7)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
 
         return ax
 
@@ -165,17 +169,21 @@ class AerialImageViewer:
         axes[0].set_title('Mask Pattern')
         axes[0].set_xlabel('X (nm)')
         axes[0].set_ylabel('Y (nm)')
+        axes[0].spines['top'].set_visible(False)
+        axes[0].spines['right'].set_visible(False)
 
         # Panel 2: Aerial image
         ai_vmax = max(1.0, float(aerial_image.max()))
-        im = axes[1].imshow(aerial_image, origin='lower', cmap='hot',
+        im = axes[1].imshow(aerial_image, origin='lower', cmap='inferno',
                             extent=self._get_extent(), vmin=0, vmax=ai_vmax)
-        plt.colorbar(im, ax=axes[1], label='Intensity')
+        axes[1].get_figure().colorbar(im, ax=axes[1], label='Intensity', fraction=0.035, shrink=0.85, pad=0.03)
         axes[1].set_title('Aerial Image')
         axes[1].set_xlabel('X (nm)')
+        axes[1].spines['top'].set_visible(False)
+        axes[1].spines['right'].set_visible(False)
 
         # Panel 3: Overlay with threshold contour
-        axes[2].imshow(aerial_image, origin='lower', cmap='hot',
+        axes[2].imshow(aerial_image, origin='lower', cmap='inferno',
                        extent=self._get_extent(), vmin=0, vmax=ai_vmax, alpha=0.7)
         self.plot_threshold_contour(axes[2], aerial_image, threshold, 'cyan')
 
@@ -185,8 +193,10 @@ class AerialImageViewer:
         y_nm = np.linspace(0, self.domain_size_nm, N)
         axes[2].contour(x_nm, y_nm, mask_grid, levels=[0.5],
                         colors=['white'], linewidths=1.5, linestyles='--')
-        axes[2].set_title('Overlay (cyan=print edge, white=mask edge)')
+        axes[2].set_title('Overlay')
         axes[2].set_xlabel('X (nm)')
+        axes[2].spines['top'].set_visible(False)
+        axes[2].spines['right'].set_visible(False)
 
-        fig.tight_layout()
+        fig.tight_layout(pad=1.5)
         return fig
