@@ -127,8 +127,9 @@ class ResultsExporter:
 
         # Aerial image
         if result.aerial_image is not None:
+            vmax_ai = max(1.0, float(result.aerial_image.max()))
             im = ax_aerial.imshow(result.aerial_image, cmap='inferno',
-                                  origin='lower', vmin=0, vmax=1, extent=extent,
+                                  origin='lower', vmin=0, vmax=vmax_ai, extent=extent,
                                   aspect='auto')
             fig.colorbar(im, ax=ax_aerial, fraction=0.046)
         ax_aerial.set_title('Aerial Image', color='white')

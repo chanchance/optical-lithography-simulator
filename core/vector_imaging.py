@@ -184,7 +184,7 @@ class VectorImagingEngine:
         raise ValueError(f"Unknown polarization: {polarization}")
 
     def compute_aerial_image_vector(self,
-                                     mask_fft: np.ndarray,
+                                     mask_transmission: np.ndarray,
                                      source_points,
                                      polarization: Polarization = Polarization.UNPOLARIZED
                                      ) -> np.ndarray:
@@ -204,7 +204,7 @@ class VectorImagingEngine:
           For UNPOLARIZED: average of X and Y input polarizations.
 
         Args:
-            mask_fft: 2D FFT of mask transmission, shape (N,N) complex
+            mask_transmission: 2D spatial mask transmission t(x,y), shape (N,N)
             source_points: list of SourcePoint with .kx, .ky, .weight
                            (kx,ky in normalized pupil coords -1..1)
             polarization: Polarization enum
@@ -243,9 +243,6 @@ class VectorImagingEngine:
 
         I_total = np.zeros((N, N), dtype=np.float64)
 
-        # mask_spatial is constant across all source points and polarizations
-        mask_spatial = np.fft.ifft2(mask_fft)
-
         for sp in source_points:
             # Source k-vector in cycles/nm
             ks_x = sp.kx * NA_freq
@@ -255,7 +252,7 @@ class VectorImagingEngine:
             # FFT{t(x,y) * exp(-j2π(ksx*x + ksy*y))} = M(fx + ksx, fy + ksy)
             # (negative sign — see fourier_optics.py for derivation)
             phase_ramp = np.exp(-1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
-            M_shifted = np.fft.fft2(mask_spatial * phase_ramp)
+            M_shifted = np.fft.fft2(mask_transmission * phase_ramp)
 
             for pol, pol_w in zip(pol_list, pol_weights):
                 # Input Jones vector for this polarization + source direction

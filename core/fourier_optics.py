@@ -212,9 +212,8 @@ class FourierOpticsEngine:
             from .vector_imaging import VectorImagingEngine, Polarization
             vec_engine = VectorImagingEngine(self.config)
             pol = Polarization(self.polarization)
-            mask_fft = np.fft.fft2(mask_transmission)
             source_points = source.get_source_points()
-            return vec_engine.compute_aerial_image_vector(mask_fft, source_points, pol)
+            return vec_engine.compute_aerial_image_vector(mask_transmission, source_points, pol)
 
         # Select compute backend (NumPy or CuPy)
         if self.use_gpu:
