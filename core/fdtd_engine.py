@@ -77,16 +77,20 @@ class PMLLayer:
         m = 3  # Grading order
 
         profile = np.zeros(n_cells)
-        # Left PML
+        # Left PML: i=0 is outermost boundary (sigma_max), i=n_left-1 is innermost
+        # face adjacent to domain (sigma≈0).  Depth from inner face increases as i
+        # decreases, so x = (n_left - i - 0.5) / thickness.
         n_left = min(self.thickness, n_cells)
         for i in range(n_left):
-            x = (i + 0.5) / self.thickness
+            x = (n_left - i - 0.5) / self.thickness
             profile[i] = sigma_max * (x ** m)
-        # Right PML (only write cells not already covered by left PML)
-        for i in range(min(self.thickness, n_cells)):
+        # Right PML: i=0 is outermost boundary (j=n_cells-1, sigma_max),
+        # i=n_right-1 is innermost face adjacent to domain (sigma≈0).
+        n_right = min(self.thickness, n_cells)
+        for i in range(n_right):
             j = n_cells - 1 - i
             if j >= n_left:
-                x = (i + 0.5) / self.thickness
+                x = (n_right - i - 0.5) / self.thickness
                 profile[j] = sigma_max * (x ** m)
 
         return profile
