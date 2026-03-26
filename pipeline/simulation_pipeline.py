@@ -43,7 +43,8 @@ class SimulationPipeline:
             sys.path.insert(0, sim_dir)
 
     def run(self, config: Dict, layout_path: Optional[str] = None,
-            on_progress: Optional[Callable] = None) -> SimResult:
+            on_progress: Optional[Callable] = None,
+            stop_fn: Optional[Callable[[], bool]] = None) -> SimResult:
         """
         Run full simulation pipeline.
 
@@ -61,14 +62,25 @@ class SimulationPipeline:
             if on_progress:
                 on_progress(step, pct)
 
+        def is_stopped():
+            return stop_fn is not None and stop_fn()
+
         try:
             # Step 1: Load layout or create test pattern
             progress('Loading layout', 5)
+            if is_stopped():
+                result.status = 'failed'
+                result.error_msg = 'Stopped by user'
+                return result
             mask_grid = self._step_load_layout(config, layout_path)
             result.mask_grid = mask_grid
             progress('Layout loaded', 20)
 
             # Step 2: Create illumination source
+            if is_stopped():
+                result.status = 'failed'
+                result.error_msg = 'Stopped by user'
+                return result
             progress('Creating source', 25)
             source = self._step_create_source(config)
             result.source_points = np.array(
@@ -77,12 +89,20 @@ class SimulationPipeline:
             progress('Source ready', 35)
 
             # Step 3: Compute aerial image
+            if is_stopped():
+                result.status = 'failed'
+                result.error_msg = 'Stopped by user'
+                return result
             progress('Computing aerial image', 40)
             aerial_image = self._step_compute_aerial_image(config, mask_grid, source, on_progress)
             result.aerial_image = aerial_image
             progress('Aerial image done', 80)
 
             # Step 4: Analyze
+            if is_stopped():
+                result.status = 'failed'
+                result.error_msg = 'Stopped by user'
+                return result
             progress('Analyzing', 85)
             metrics = self._step_analyze(config, aerial_image)
             result.cd_nm = metrics.get('cd_nm', 0.0)

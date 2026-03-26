@@ -44,7 +44,8 @@ class _SimWorker(QObject):
             cfg = dict(self._config)
             cfg.setdefault('simulation', {})['mode'] = self._mode
 
-            result = pipeline.run(cfg, self._layout_path, on_progress)
+            result = pipeline.run(cfg, self._layout_path, on_progress,
+                                  stop_fn=lambda: self._stop)
             self.finished.emit(result)
         except Exception as e:
             import traceback
@@ -233,6 +234,16 @@ class MainWindow(QMainWindow):
             return
         config = self.param_panel.get_config()
         layout_path = self.layout_panel.get_layout_path()
+
+        if not layout_path:
+            answer = QMessageBox.question(
+                self, "No Layout Loaded",
+                "No layout file is loaded. Run simulation with a synthetic test pattern?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if answer != QMessageBox.Yes:
+                return
 
         self._sim_thread = SimWorkerThread(config, layout_path, mode, self)
         self._sim_thread.progress.connect(self._on_progress)

@@ -37,7 +37,35 @@ class SourceDialog(QDialog):
         self.setWindowTitle("Illumination Source Preview")
         self.resize(720, 520)
         self._build_ui()
+        if config:
+            self._load_from_config(config)
         self._update_preview()
+
+    def _load_from_config(self, config):
+        """Initialize controls from an existing config dict."""
+        litho = config.get('lithography', config)
+        illum = litho.get('illumination', {})
+        illum_type = illum.get('type', 'annular').capitalize()
+        # Map config keys to combo items
+        type_map = {
+            'circular': 'Circular', 'annular': 'Annular',
+            'quadrupole': 'Quadrupole', 'quasar': 'Quasar', 'freeform': 'Freeform',
+        }
+        combo_text = type_map.get(illum.get('type', 'annular'), illum_type)
+        idx = self.illum_combo.findText(combo_text)
+        if idx >= 0:
+            self.illum_combo.setCurrentIndex(idx)
+        sigma_outer = illum.get('sigma_outer', 0.85)
+        sigma_inner = illum.get('sigma_inner', 0.55)
+        # Block signals to avoid triggering preview twice during init
+        self.sigma_outer_sb.blockSignals(True)
+        self.sigma_inner_sb.blockSignals(True)
+        self.sigma_outer_sb.setValue(sigma_outer)
+        self.sigma_inner_sb.setValue(sigma_inner)
+        self.sigma_outer_sb.blockSignals(False)
+        self.sigma_inner_sb.blockSignals(False)
+        if illum.get('type') == 'freeform' and illum.get('expression'):
+            self._freeform_expr.setText(illum['expression'])
 
     def _build_ui(self):
         root_layout = QVBoxLayout(self)
