@@ -253,27 +253,29 @@ class DipoleSource(BaseSource):
         self.opening_angle_deg = opening_angle_deg
 
     def _compute_points(self) -> List[SourcePoint]:
-        # Pole center angles based on orientation
+        # Pole centers at ±sigma_center in the orientation direction.
+        # Matches the circular-disc representation shown in the source dialog preview.
+        sc = self.sigma_center
         if self.orientation == 'y':
-            pole_angles = [np.pi / 2, 3 * np.pi / 2]   # top / bottom
+            pole_centers = [(0.0, sc), (0.0, -sc)]
         else:
-            pole_angles = [0.0, np.pi]                  # right / left (default x)
+            pole_centers = [(sc, 0.0), (-sc, 0.0)]
 
-        half_angle = np.radians(self.opening_angle_deg / 2.0)
-        n_r = max(3, self.N_points * 2)
-        n_a = max(6, self.N_points * 4)
+        # Disc radius = half the annular ring width
+        r_disc = max(1e-6, (self.sigma_outer - self.sigma_inner) / 2.0)
 
-        r_arr = np.linspace(self.sigma_inner, self.sigma_outer, n_r)
-        r_arr = r_arr[r_arr >= 0]
+        # Sample a Cartesian grid within each circular disc
+        n = max(4, self.N_points * 3)
+        lin = np.linspace(-r_disc, r_disc, n)
+        KX_d, KY_d = np.meshgrid(lin, lin, indexing='ij')
+        in_disc = (KX_d**2 + KY_d**2) <= r_disc**2
 
         all_points = []
-        for pole_angle in pole_angles:
-            for r in r_arr:
-                for dt in np.linspace(-half_angle, half_angle, n_a):
-                    angle = pole_angle + dt
-                    kx = r * np.cos(angle)
-                    ky = r * np.sin(angle)
-                    all_points.append((kx, ky))
+        for cx, cy in pole_centers:
+            kx_pts = cx + KX_d[in_disc]
+            ky_pts = cy + KY_d[in_disc]
+            for kx, ky in zip(kx_pts.ravel(), ky_pts.ravel()):
+                all_points.append((float(kx), float(ky)))
 
         n_pts = max(1, len(all_points))
         weight = 1.0 / n_pts
