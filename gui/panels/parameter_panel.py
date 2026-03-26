@@ -74,8 +74,31 @@ class ParameterPanel(QWidget):
         # ---- Lithography parameters ----
         litho_group = QGroupBox("Lithography Parameters")
         litho_group.setFlat(False)
-        form = QFormLayout(litho_group)
-        form.setContentsMargins(8, 12, 8, 8)
+        litho_vbox = QVBoxLayout(litho_group)
+        litho_vbox.setContentsMargins(8, 12, 8, 8)
+        litho_vbox.setSpacing(6)
+
+        # Quick preset buttons (wavelength + NA shortcuts)
+        quick_row = QHBoxLayout()
+        quick_row.setSpacing(4)
+        for _lbl, _wl, _na in [
+            ("ArF 193nm", 193.0, 0.93),
+            ("KrF 248nm", 248.0, 0.75),
+            ("EUV 13.5nm", 13.5, 0.33),
+            ("i-line 365nm", 365.0, 0.65),
+        ]:
+            _btn = QPushButton(_lbl)
+            _btn.setObjectName("secondary")
+            _btn.setMaximumHeight(28)
+            _btn.setToolTip("Set wavelength={} nm, NA={}".format(_wl, _na))
+            _btn.clicked.connect(
+                lambda checked=False, w=_wl, n=_na: self._apply_quick_preset(w, n))
+            quick_row.addWidget(_btn)
+        litho_vbox.addLayout(quick_row)
+
+        form = QFormLayout()
+        form.setSpacing(4)
+        litho_vbox.addLayout(form)
 
         self.wavelength_sb = QDoubleSpinBox()
         self.wavelength_sb.setRange(13.5, 365.0)
@@ -417,6 +440,19 @@ class ParameterPanel(QWidget):
     # ------------------------------------------------------------------
     # Preset logic
     # ------------------------------------------------------------------
+
+    def _apply_quick_preset(self, wavelength_nm, na):
+        """Apply a quick wavelength/NA preset without changing sigma values."""
+        self._applying_preset = True
+        try:
+            self.wavelength_sb.setValue(wavelength_nm)
+            self.na_sb.setValue(na)
+        finally:
+            self._applying_preset = False
+        self.preset_combo.blockSignals(True)
+        self.preset_combo.setCurrentText("Custom")
+        self.preset_combo.blockSignals(False)
+        self.params_changed.emit()
 
     def _on_preset_changed(self, text):
         values = _PRESETS.get(text)

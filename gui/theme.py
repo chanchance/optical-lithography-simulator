@@ -234,6 +234,22 @@ def get_qss() -> str:
         color: {TEXT_SECONDARY};
         font-size: 12px;
     }}
+    QStatusBar::item {{ border: none; }}
+    QStatusBar QLabel[objectName="caption"] {{
+        border-left: 1px solid {BORDER};
+        padding-left: 8px;
+        margin-left: 4px;
+    }}
+
+    /* === Tooltip === */
+    QToolTip {{
+        background: {TEXT_PRIMARY};
+        color: {BG_PRIMARY};
+        border: none;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+    }}
 
     /* === Menu === */
     QMenuBar {{

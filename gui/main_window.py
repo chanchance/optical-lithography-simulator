@@ -9,6 +9,7 @@ from gui.qt_compat import (
     QMainWindow, QTabWidget, QStatusBar, QProgressBar,
     QLabel, QFileDialog, QMessageBox, QApplication,
     QToolBar, QStyle, Qt, QThread, Signal, QObject, QAction,
+    QWidget, QVBoxLayout,
 )
 from gui import theme
 
@@ -73,6 +74,29 @@ class SimWorkerThread(QThread):
         self._worker._stop = True
 
 
+# ── Stack panel (non-modal embedded film stack editor) ──────────────────────
+
+class _StackPanel(QWidget):
+    """Embeds StackDialog content as an in-window tab (non-modal)."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        try:
+            from gui.dialogs.stack_dialog import StackDialog
+            self._dialog = StackDialog(self)
+            self._dialog.setWindowFlags(Qt.Widget)
+            layout.addWidget(self._dialog)
+        except Exception as exc:
+            err = QLabel("Film Stack editor unavailable: {}".format(exc))
+            err.setObjectName("caption")
+            layout.addWidget(err)
+            self._dialog = None
+
+    def get_film_stack(self):
+        return self._dialog.get_film_stack() if self._dialog else None
+
+
 # ── Main window ────────────────────────────────────────────────────────────────
 
 class MainWindow(QMainWindow):
@@ -87,6 +111,8 @@ class MainWindow(QMainWindow):
         self._build_statusbar()
         self._build_toolbar()
         self._apply_stylesheet()
+        self._build_shortcuts()
+        self._update_sim_info()
 
     def _build_ui(self):
         from gui.panels.layout_panel import LayoutPanel
@@ -105,11 +131,14 @@ class MainWindow(QMainWindow):
         self.results_panel = ResultsPanel()
         self.analysis_panel = AnalysisPanel()
 
+        self.stack_panel = _StackPanel()
+
         self.tabs.addTab(self.layout_panel, "Layout")
         self.tabs.addTab(self.param_panel, "Parameters")
         self.tabs.addTab(self.sim_panel, "Simulation")
         self.tabs.addTab(self.results_panel, "Results")
         self.tabs.addTab(self.analysis_panel, "Analysis")
+        self.tabs.addTab(self.stack_panel, "Stack")
 
         # Wire signals
         self.sim_panel.run_requested.connect(self._run_simulation)
@@ -175,8 +204,11 @@ class MainWindow(QMainWindow):
         self.status_progress.setRange(0, 100)
         self.status_progress.setValue(0)
         self.status_progress.setVisible(False)
+        self.sim_info_label = QLabel("Mode: Fourier  |  Grid: 256×256  |  Points: 65,536")
+        self.sim_info_label.setObjectName("caption")
         sb = self.statusBar()
         sb.addWidget(self.status_label, 1)
+        sb.addPermanentWidget(self.sim_info_label)
         sb.addPermanentWidget(self.status_progress)
 
     def _build_toolbar(self):
@@ -205,6 +237,36 @@ class MainWindow(QMainWindow):
         act_source = QAction("Source", self)
         act_source.triggered.connect(self._show_source_dialog)
         tb.addAction(act_source)
+
+    def _build_shortcuts(self):
+        try:
+            from PySide6.QtGui import QShortcut, QKeySequence
+        except ImportError:
+            try:
+                from PyQt5.QtWidgets import QShortcut   # type: ignore
+                from PyQt5.QtGui import QKeySequence    # type: ignore
+            except ImportError:
+                return
+
+        QShortcut(QKeySequence("Ctrl+R"), self).activated.connect(
+            lambda: (self.tabs.setCurrentIndex(2), self.sim_panel._on_run()))
+        QShortcut(QKeySequence("Escape"), self).activated.connect(self._stop_simulation)
+        QShortcut(QKeySequence("F1"), self).activated.connect(self._show_about)
+        for i in range(6):
+            QShortcut(QKeySequence("Ctrl+{}".format(i + 1)), self).activated.connect(
+                lambda j=i: self.tabs.setCurrentIndex(j))
+
+    def _update_sim_info(self, mode=None):
+        try:
+            cfg = self.param_panel.get_config()
+            grid = cfg.get('simulation', {}).get('grid_size', 256)
+        except Exception:
+            grid = 256
+        mode_str = "Fourier" if (mode is None or mode == "fourier") else "FDTD"
+        n_pts = grid * grid
+        self.sim_info_label.setText(
+            "Mode: {}  |  Grid: {}×{}  |  Points: {:,}".format(
+                mode_str, grid, grid, n_pts))
 
     def _apply_stylesheet(self):
         app = QApplication.instance()
@@ -239,6 +301,23 @@ class MainWindow(QMainWindow):
             return
         config = self.param_panel.get_config()
         layout_path = self.layout_panel.get_layout_path()
+
+        # Inject polarization into config if non-scalar is selected
+        pol_text = self.results_panel.get_polarization()
+        if pol_text != "Scalar":
+            try:
+                import core.vector_imaging  # availability check  # noqa: F401
+                pol_map = {
+                    "X-linear": "x_linear", "Y-linear": "y_linear",
+                    "TE": "te", "TM": "tm",
+                    "Circular-L": "circular_l", "Circular-R": "circular_r",
+                }
+                config.setdefault('simulation', {})['polarization'] = \
+                    pol_map.get(pol_text, 'scalar')
+            except ImportError:
+                pass  # VectorImagingEngine unavailable — keep scalar
+
+        self._update_sim_info(mode)
 
         # Validate config and show errors/warnings before launching
         from fileio.config_validator import ConfigValidator

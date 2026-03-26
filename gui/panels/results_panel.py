@@ -8,7 +8,7 @@ import numpy as np
 from gui.qt_compat import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QPushButton, QFileDialog, QMessageBox, QApplication,
-    QLabel, QFont, QFrame, Qt, QCheckBox,
+    QLabel, QFont, QFrame, Qt, QCheckBox, QComboBox,
 )
 from gui import theme
 
@@ -120,9 +120,19 @@ class ResultsPanel(QWidget):
         self.clear_gauges_btn.clicked.connect(self._clear_gauges)
         self.show_resist_chk.toggled.connect(self._on_resist_edge_toggled)
 
+        pol_lbl = QLabel("Polarization:")
+        pol_lbl.setObjectName("caption")
+        self.polarization_combo = QComboBox()
+        self.polarization_combo.addItems([
+            "Scalar", "X-linear", "Y-linear", "TE", "TM", "Circular-L", "Circular-R"])
+        self.polarization_combo.setToolTip(
+            "Simulation polarization mode.\n"
+            "Non-scalar modes use VectorImagingEngine (core.vector_imaging).")
+
         for w in (self.export_png_btn, self.export_pdf_btn, self.copy_table_btn,
                   self.add_gauge_btn, self.clear_gauges_btn,
-                  self.show_resist_chk, self.gauge_status):
+                  self.show_resist_chk, self.gauge_status,
+                  pol_lbl, self.polarization_combo):
             btn_col.addWidget(w)
         btn_col.addStretch()
         bottom.addWidget(btn_frame)
@@ -697,6 +707,10 @@ class ResultsPanel(QWidget):
 
     # ------------------------------------------------------------------
     # Export
+    def get_polarization(self) -> str:
+        """Return the currently selected polarization mode string."""
+        return self.polarization_combo.currentText()
+
     # ------------------------------------------------------------------
 
     def _export(self, fmt):
