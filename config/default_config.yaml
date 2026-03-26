@@ -1,0 +1,82 @@
+# Optical Lithography Simulator - Default Configuration
+# Based on Pistor 2001 "Electromagnetic Simulation and Modeling with Applications in Lithography"
+
+lithography:
+  # ArF configuration (default)
+  wavelength_nm: 193.0        # ArF excimer laser
+  NA: 0.93                    # Numerical aperture
+
+  # Illumination
+  illumination:
+    type: annular             # circular, annular, quadrupole, quasar
+    sigma_outer: 0.85         # Outer coherence factor
+    sigma_inner: 0.55         # Inner coherence factor (annular only)
+    sigma_c: 0.15             # Pole radius (quadrupole/quasar)
+    sigma_r: 0.30             # Pole center sigma (quadrupole/quasar)
+    theta_q: 45.0             # Quasar rotation angle (degrees)
+    N_source_points: 4        # Oversampling factor Ns (Eq 4-1 Pistor)
+    polarization: unpolarized # unpolarized, TE, TM, xy
+
+  # Defocus and aberrations
+  defocus_nm: 0.0
+  aberrations:
+    W020: 0.0   # Defocus (waves)
+    W040: 0.0   # Spherical aberration
+    W111: 0.0   # Tilt
+    W131: 0.0   # Coma
+    W222: 0.0   # Astigmatism
+
+  # Mask
+  mask:
+    type: binary              # binary, attPSM, altPSM
+    transmission_clear: 1.0
+    transmission_opaque: 0.0
+    phase_shift_deg: 180.0    # For PSM
+    attenuated_transmission: 0.06  # For attPSM
+    magnification: 4.0        # 4X reduction stepper
+
+  # Resist
+  resist:
+    threshold: 0.30           # Normalized intensity threshold
+    n_resist: 1.7             # Refractive index
+
+# EUV configuration (alternative)
+euv:
+  wavelength_nm: 13.5
+  NA: 0.33
+  illumination:
+    type: annular
+    sigma_outer: 0.80
+    sigma_inner: 0.55
+  defocus_nm: 0.0
+
+# Simulation settings
+simulation:
+  mode: fourier_optics        # fourier_optics or fdtd
+  grid_size: 256              # Simulation grid NxN
+  domain_size_nm: 2000.0      # Simulation domain size
+
+  # FDTD settings
+  fdtd:
+    dx_nm: 5.0                # Spatial step (nm)
+    dt_factor: 0.9            # CFL stability factor (dt = factor * dx/c)
+    max_timesteps: 10000
+    convergence_threshold: 0.01   # max relative error (pterr)
+    pml_thickness: 10         # PML layer thickness in cells
+
+# Analysis
+analysis:
+  cd_threshold: 0.30
+  nils_threshold: 0.30
+  dose_range_percent: [-20, 20]
+  focus_range_nm: [-200, 200]
+  focus_steps: 9
+  dose_steps: 9
+
+# Output
+output:
+  directory: ./results
+  save_aerial_image: true
+  save_field_data: false
+  image_format: png
+  dpi: 150

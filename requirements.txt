@@ -1,0 +1,20 @@
+# Core scientific
+numpy>=1.19.0
+scipy>=1.6.0
+matplotlib>=3.3.0
+
+# Layout I/O
+gdstk>=0.8.0
+
+# PDF parsing
+pdfplumber>=0.6.0
+
+# Config
+PyYAML>=5.4.0
+
+# GUI (try PySide6 first, fallback PyQt5)
+PySide6>=6.2.0
+
+# Optional
+Pillow>=8.0.0
+pandas>=1.2.0
