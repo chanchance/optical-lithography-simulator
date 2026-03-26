@@ -58,7 +58,7 @@ class ParameterPanel(QWidget):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(8)
+        layout.setSpacing(10)
 
         # ---- Preset selector ----
         preset_group = QGroupBox("Quick Presets")
@@ -84,7 +84,7 @@ class ParameterPanel(QWidget):
 
         # Quick preset buttons (wavelength + NA shortcuts)
         quick_row = QHBoxLayout()
-        quick_row.setSpacing(4)
+        quick_row.setSpacing(6)
         for _lbl, _wl, _na in [
             ("ArF 193nm", 193.0, 0.93),
             ("KrF 248nm", 248.0, 0.75),
@@ -93,7 +93,7 @@ class ParameterPanel(QWidget):
         ]:
             _btn = QPushButton(_lbl)
             _btn.setObjectName("secondary")
-            _btn.setMaximumHeight(28)
+            _btn.setMaximumHeight(30)
             _btn.setToolTip("Set wavelength={} nm, NA={}".format(_wl, _na))
             _btn.clicked.connect(
                 lambda checked=False, w=_wl, n=_na: self._apply_quick_preset(w, n))
@@ -101,7 +101,7 @@ class ParameterPanel(QWidget):
         litho_vbox.addLayout(quick_row)
 
         form = QFormLayout()
-        form.setSpacing(4)
+        form.setSpacing(6)
         litho_vbox.addLayout(form)
 
         self.wavelength_sb = QDoubleSpinBox()
@@ -356,6 +356,8 @@ class ParameterPanel(QWidget):
         # ---- Resist Model ----
         resist_group = QGroupBox("Resist Model")
         resist_group.setFlat(False)
+        resist_group.setCheckable(True)
+        resist_group.setChecked(True)
         resist_outer = QVBoxLayout(resist_group)
         resist_outer.setContentsMargins(8, 12, 8, 8)
         resist_outer.setSpacing(6)
@@ -376,7 +378,7 @@ class ParameterPanel(QWidget):
         thresh_page = QWidget()
         thresh_form = QFormLayout(thresh_page)
         thresh_form.setContentsMargins(0, 0, 0, 0)
-        thresh_form.setSpacing(4)
+        thresh_form.setSpacing(6)
         self.resist_threshold_sb = QDoubleSpinBox()
         self.resist_threshold_sb.setRange(0.1, 0.9)
         self.resist_threshold_sb.setValue(0.30)
@@ -391,7 +393,7 @@ class ParameterPanel(QWidget):
         dill_page = QWidget()
         dill_form = QFormLayout(dill_page)
         dill_form.setContentsMargins(0, 0, 0, 0)
-        dill_form.setSpacing(4)
+        dill_form.setSpacing(6)
         self.dill_A_sb = QDoubleSpinBox()
         self.dill_A_sb.setRange(0.001, 5.0)   # validator requires A > 0
         self.dill_A_sb.setValue(0.8)
@@ -431,7 +433,7 @@ class ParameterPanel(QWidget):
         ca_page = QWidget()
         ca_form = QFormLayout(ca_page)
         ca_form.setContentsMargins(0, 0, 0, 0)
-        ca_form.setSpacing(4)
+        ca_form.setSpacing(6)
         self.ca_qe_sb = QDoubleSpinBox()
         self.ca_qe_sb.setRange(0.001, 0.999)   # validator requires QE in (0, 1)
         self.ca_qe_sb.setValue(0.5)
@@ -497,6 +499,8 @@ class ParameterPanel(QWidget):
 
         # ---- Load / Save buttons ----
         btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        btn_row.setContentsMargins(8, 4, 8, 8)
         self.load_btn = QPushButton("Load YAML")
         self.save_btn = QPushButton("Save YAML")
         self.load_btn.setObjectName("secondary")
