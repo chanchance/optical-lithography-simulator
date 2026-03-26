@@ -326,7 +326,12 @@ class TransferMatrixEngine:
             # Interface matrix from i-1 to i
             D = self._interface_matrix(n_list[i - 1], n_list[i],
                                        kz_list[i - 1], kz_list[i], pol)
-            ev = np.linalg.solve(D, amplitude_at[i - 1])
+            try:
+                ev = np.linalg.solve(D, amplitude_at[i - 1])
+            except np.linalg.LinAlgError:
+                # Singular interface matrix (degenerate stack); propagate
+                # forward amplitude unchanged and zero reflected amplitude.
+                ev = np.array([amplitude_at[i - 1][0], 0.0 + 0j], dtype=complex)
             amplitude_at[i] = ev
             # amplitude_at[i] is already at top of layer i; no propagation needed here
 
@@ -377,9 +382,16 @@ class TransferMatrixEngine:
             kpar_phys = float(np.sqrt(kx_flat[idx]**2 + ky_flat[idx]**2)) * k0
             try:
                 M = self._build_transfer_matrix(stack, kpar_phys, polarization)
-                r_val = M[1, 0] / M[0, 0]
-                result.ravel()[idx] = 1.0 + r_val
-            except (ZeroDivisionError, FloatingPointError, ValueError):
+                m00 = M[0, 0]
+                if m00 == 0 or not np.isfinite(m00):
+                    result.ravel()[idx] = 1.0
+                else:
+                    r_val = M[1, 0] / m00
+                    val = 1.0 + r_val
+                    # NumPy never raises ZeroDivisionError; check explicitly for
+                    # non-finite results that would propagate as nan/inf.
+                    result.ravel()[idx] = val if np.isfinite(abs(val)) else 1.0
+            except (FloatingPointError, ValueError, np.linalg.LinAlgError):
                 result.ravel()[idx] = 1.0
 
         return result
