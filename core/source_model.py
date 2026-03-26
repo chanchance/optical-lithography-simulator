@@ -3,11 +3,12 @@ Illumination source models for photolithography simulation.
 Based on Pistor 2001 Chapter 4 (Imaging System Modeling).
 
 Implements Köhler illumination with various pupil shapes:
-- Circular, Annular, Quadrupole, Quasar
+- Circular, Annular, Quadrupole, Quasar, Freeform
 
 Source discretization formula (Eq 4-1):
 n_2D = (pi/4) * (Ns * 2*sigma*NA*w / lambda)^2
 """
+import os
 import numpy as np
 from typing import List, Tuple, NamedTuple
 
@@ -226,7 +227,106 @@ class QuasarSource(BaseSource):
                 for p in all_points]
 
 
-def create_source(config: dict) -> BaseSource:
+class FreeformSource:
+    """
+    Freeform pupil-plane illumination source.
+    Defined by a 2D intensity map on the normalized pupil coordinate grid.
+    Supports: loaded from file (CSV/NPY), manual pixel editing, or mathematical expression.
+
+    Ref: Pistor Ch.4.2 — arbitrary source shapes for source optimization
+    """
+
+    def __init__(self, pupil_size: int = 64):
+        self.pupil_size = pupil_size
+        self._map = np.zeros((pupil_size, pupil_size), dtype=np.float64)
+        self._sigma_max = 1.0
+
+    @classmethod
+    def from_array(cls, arr: np.ndarray, sigma_max: float = 1.0) -> 'FreeformSource':
+        """Create from a 2D numpy array (will be normalized to [0,1])."""
+        obj = cls(pupil_size=arr.shape[0])
+        obj._map = np.clip(arr.astype(np.float64), 0, None)
+        if obj._map.max() > 0:
+            obj._map /= obj._map.max()
+        obj._sigma_max = sigma_max
+        return obj
+
+    @classmethod
+    def from_file(cls, path: str, sigma_max: float = 1.0) -> 'FreeformSource':
+        """Load from .npy or .csv file."""
+        ext = os.path.splitext(path)[1].lower()
+        if ext == '.npy':
+            arr = np.load(path)
+        elif ext in ('.csv', '.txt'):
+            arr = np.loadtxt(path, delimiter=',')
+        else:
+            raise ValueError("Unsupported format: {}. Use .npy or .csv".format(ext))
+        return cls.from_array(arr, sigma_max)
+
+    @classmethod
+    def from_expression(cls, expr: str, pupil_size: int = 64,
+                         sigma_max: float = 1.0) -> 'FreeformSource':
+        """
+        Create from a mathematical expression.
+        Variables: x, y (normalized pupil coords in [-1, 1]), r (radius)
+        Example: "np.exp(-r**2 / 0.1)" or "(r > 0.3) & (r < 0.7)"
+        """
+        s = np.linspace(-1, 1, pupil_size)
+        x, y = np.meshgrid(s, s)
+        r = np.sqrt(x**2 + y**2)
+        # Safe eval with restricted namespace
+        ns = {'np': np, 'x': x, 'y': y, 'r': r,
+              'sin': np.sin, 'cos': np.cos, 'exp': np.exp,
+              'abs': np.abs, 'sqrt': np.sqrt}
+        arr = eval(expr, {"__builtins__": {}}, ns)
+        arr = np.asarray(arr, dtype=np.float64)
+        # Apply sigma_max circular aperture
+        arr[r > sigma_max] = 0.0
+        return cls.from_array(arr, sigma_max)
+
+    def get_source_points(self) -> tuple:
+        """
+        Return (sigma_x, sigma_y, weights) arrays for Abbe integration.
+        Only returns points with intensity > threshold.
+        """
+        N = self.pupil_size
+        s = np.linspace(-self._sigma_max, self._sigma_max, N)
+        sx, sy = np.meshgrid(s, s)
+
+        # Flatten and threshold
+        flat_weights = self._map.ravel()
+        flat_sx = sx.ravel()
+        flat_sy = sy.ravel()
+
+        mask = flat_weights > 1e-4
+        return flat_sx[mask], flat_sy[mask], flat_weights[mask]
+
+    def get_map(self) -> np.ndarray:
+        return self._map.copy()
+
+    def set_pixel(self, row: int, col: int, value: float) -> None:
+        """Set individual pixel (for interactive painting)."""
+        if 0 <= row < self.pupil_size and 0 <= col < self.pupil_size:
+            self._map[row, col] = np.clip(value, 0.0, 1.0)
+
+    def save(self, path: str) -> None:
+        """Save map to .npy or .csv."""
+        ext = os.path.splitext(path)[1].lower()
+        if ext == '.npy':
+            np.save(path, self._map)
+        else:
+            np.savetxt(path, self._map, delimiter=',', fmt='%.6f')
+
+    @property
+    def sigma_max(self) -> float:
+        return self._sigma_max
+
+    @property
+    def n_points(self) -> int:
+        return int(np.sum(self._map > 1e-4))
+
+
+def create_source(config: dict):
     """Factory function to create illumination source from config dict."""
     illum = config.get('illumination', config)
     source_type = illum.get('type', 'circular').lower()
@@ -246,5 +346,16 @@ def create_source(config: dict) -> BaseSource:
     elif source_type == 'quasar':
         return QuasarSource(NA, illum.get('sigma_c', 0.15), illum.get('sigma_r', 0.30),
                             illum.get('theta_q', 45.0), wl, N, pol)
+    elif source_type == 'freeform':
+        expr = illum.get('expression', '')
+        path = illum.get('file', '')
+        sigma_max = illum.get('sigma_max', 1.0)
+        pupil_size = illum.get('pupil_size', 64)
+        if path:
+            return FreeformSource.from_file(path, sigma_max)
+        elif expr:
+            return FreeformSource.from_expression(expr, pupil_size, sigma_max)
+        else:
+            return FreeformSource(pupil_size)
     else:
         raise ValueError("Unknown source type: {}".format(source_type))

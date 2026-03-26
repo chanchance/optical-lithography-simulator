@@ -11,9 +11,15 @@ from gui.qt_compat import (
 from gui import theme
 
 try:
-    from PySide6.QtWidgets import QDialog, QDialogButtonBox
+    from PySide6.QtWidgets import (
+        QDialog, QDialogButtonBox, QLineEdit, QPushButton, QFileDialog,
+        QStackedWidget, QMessageBox,
+    )
 except ImportError:
-    from PyQt5.QtWidgets import QDialog, QDialogButtonBox  # type: ignore
+    from PyQt5.QtWidgets import (  # type: ignore
+        QDialog, QDialogButtonBox, QLineEdit, QPushButton, QFileDialog,
+        QStackedWidget, QMessageBox,
+    )
 
 import matplotlib
 matplotlib.use('Agg')
@@ -54,9 +60,9 @@ class SourceDialog(QDialog):
         ctrl.setContentsMargins(10, 14, 10, 10)
 
         self.illum_combo = QComboBox()
-        self.illum_combo.addItems(["Circular", "Annular", "Quadrupole", "Quasar"])
+        self.illum_combo.addItems(["Circular", "Annular", "Quadrupole", "Quasar", "Freeform"])
         self.illum_combo.setCurrentText("Annular")
-        self.illum_combo.currentTextChanged.connect(self._update_preview)
+        self.illum_combo.currentTextChanged.connect(self._on_type_changed)
         ctrl.addRow("Type:", self.illum_combo)
 
         self.sigma_outer_sb = QDoubleSpinBox()
@@ -75,7 +81,50 @@ class SourceDialog(QDialog):
         self.sigma_inner_sb.valueChanged.connect(self._update_preview)
         ctrl.addRow("σ inner:", self.sigma_inner_sb)
 
+        self._sigma_max_spin = QDoubleSpinBox()
+        self._sigma_max_spin.setRange(0.01, 1.0)
+        self._sigma_max_spin.setValue(1.0)
+        self._sigma_max_spin.setDecimals(2)
+        self._sigma_max_spin.setSingleStep(0.05)
+        self._sigma_max_spin.valueChanged.connect(self._update_preview)
+        self._sigma_max_label = QLabel("σ max (freeform):")
+        ctrl.addRow(self._sigma_max_label, self._sigma_max_spin)
+        self._sigma_max_label.setVisible(False)
+        self._sigma_max_spin.setVisible(False)
+
         left_layout.addWidget(ctrl_group)
+
+        # ── Freeform editor (hidden unless Freeform selected) ─────────────────
+        self._freeform_group = QGroupBox("Freeform Editor")
+        ff_layout = QVBoxLayout(self._freeform_group)
+        ff_layout.setContentsMargins(10, 14, 10, 10)
+        ff_layout.setSpacing(6)
+
+        expr_row = QHBoxLayout()
+        expr_lbl = QLabel("Expression:")
+        self._freeform_expr = QLineEdit()
+        self._freeform_expr.setPlaceholderText("e.g. (r > 0.3) & (r < 0.6)")
+        self._freeform_expr.setText("(r > 0.3) & (r < 0.6)")
+        apply_btn = QPushButton("Apply")
+        apply_btn.setFixedWidth(54)
+        apply_btn.clicked.connect(self._apply_freeform_expr)
+        expr_row.addWidget(expr_lbl)
+        expr_row.addWidget(self._freeform_expr, stretch=1)
+        expr_row.addWidget(apply_btn)
+        ff_layout.addLayout(expr_row)
+
+        btn_row = QHBoxLayout()
+        load_btn = QPushButton("Load File")
+        load_btn.clicked.connect(self._load_freeform_file)
+        save_btn = QPushButton("Save Map")
+        save_btn.clicked.connect(self._save_freeform_map)
+        btn_row.addWidget(load_btn)
+        btn_row.addWidget(save_btn)
+        btn_row.addStretch()
+        ff_layout.addLayout(btn_row)
+
+        left_layout.addWidget(self._freeform_group)
+        self._freeform_group.setVisible(False)
 
         # Source point count label
         info_group = QGroupBox("Source Info")
@@ -129,6 +178,7 @@ class SourceDialog(QDialog):
         self.ax = self.figure.add_subplot(211)       # pupil
         self.ax_scatter = self.figure.add_subplot(212)  # scatter
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.mpl_connect('button_press_event', self._on_canvas_click)
         right_layout.addWidget(self.canvas)
 
         splitter.addWidget(right_widget)
@@ -139,6 +189,84 @@ class SourceDialog(QDialog):
         bb = QDialogButtonBox(QDialogButtonBox.Ok)
         bb.accepted.connect(self.accept)
         root_layout.addWidget(bb)
+
+        # Internal freeform state
+        self._freeform_source = None
+
+    # ── Type switch ───────────────────────────────────────────────────────────
+
+    def _on_type_changed(self, text):
+        is_freeform = (text == "Freeform")
+        self._freeform_group.setVisible(is_freeform)
+        self._sigma_max_label.setVisible(is_freeform)
+        self._sigma_max_spin.setVisible(is_freeform)
+        # sigma_outer/inner controls less relevant for freeform but keep visible
+        self._update_preview()
+
+    # ── Freeform actions ──────────────────────────────────────────────────────
+
+    def _apply_freeform_expr(self):
+        from core.source_model import FreeformSource
+        expr = self._freeform_expr.text().strip()
+        sigma_max = self._sigma_max_spin.value()
+        try:
+            self._freeform_source = FreeformSource.from_expression(
+                expr, pupil_size=64, sigma_max=sigma_max)
+            self._update_preview()
+        except Exception as exc:
+            QMessageBox.warning(self, "Expression Error", str(exc))
+
+    def _load_freeform_file(self):
+        from core.source_model import FreeformSource
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Source Map", "",
+            "Source maps (*.npy *.csv *.txt);;All files (*)")
+        if not path:
+            return
+        try:
+            self._freeform_source = FreeformSource.from_file(
+                path, self._sigma_max_spin.value())
+            self._update_preview()
+        except Exception as exc:
+            QMessageBox.warning(self, "Load Error", str(exc))
+
+    def _save_freeform_map(self):
+        if self._freeform_source is None:
+            QMessageBox.information(self, "Save Map", "No freeform map to save.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Source Map", "source_map.npy",
+            "NumPy (*.npy);;CSV (*.csv)")
+        if not path:
+            return
+        try:
+            self._freeform_source.save(path)
+        except Exception as exc:
+            QMessageBox.warning(self, "Save Error", str(exc))
+
+    def _on_canvas_click(self, event):
+        """Toggle pixel on/off in freeform map when user clicks the pupil axes."""
+        if self.illum_combo.currentText() != "Freeform":
+            return
+        if event.inaxes is not self.ax:
+            return
+        from core.source_model import FreeformSource
+        if self._freeform_source is None:
+            self._freeform_source = FreeformSource(pupil_size=64)
+
+        # Map click coordinates (pupil [-1,1]) to pixel indices
+        sigma_max = self._freeform_source.sigma_max
+        N = self._freeform_source.pupil_size
+        # Axes display range is -1.2 to 1.2; map to [-sigma_max, sigma_max]
+        cx, cy = event.xdata, event.ydata
+        if cx is None or cy is None:
+            return
+        col = int((cx + sigma_max) / (2 * sigma_max) * N)
+        row = int((sigma_max - cy) / (2 * sigma_max) * N)  # y-axis flipped
+        if 0 <= row < N and 0 <= col < N:
+            current = self._freeform_source.get_map()[row, col]
+            self._freeform_source.set_pixel(row, col, 0.0 if current > 0.5 else 1.0)
+            self._update_preview()
 
     # ── Grid / reference ring helpers ─────────────────────────────────────────
 
@@ -239,6 +367,7 @@ class SourceDialog(QDialog):
             'annular':    '#4e79a7',
             'quadrupole': '#f28e2b',
             'quasar':     '#e15759',
+            'freeform':   '#59a14f',
         }
         fill_color = fill_colors.get(itype, '#4e79a7')
 
@@ -294,8 +423,12 @@ class SourceDialog(QDialog):
                     (offset * math.cos(ang), offset * math.sin(ang)),
                     r, color=fill_color, alpha=0.75))
 
-        # Sigma reference overlays
-        self._draw_sigma_refs(ax, s_o, s_i, itype)
+        elif itype == 'freeform':
+            self._draw_freeform_pupil(ax)
+
+        # Sigma reference overlays (skip for freeform)
+        if itype != 'freeform':
+            self._draw_sigma_refs(ax, s_o, s_i, itype)
 
         ax.grid(False)
 
@@ -312,8 +445,11 @@ class SourceDialog(QDialog):
         for spine in ax_s.spines.values():
             spine.set_edgecolor(theme.BORDER)
 
-        kx_arr, ky_arr = self._sample_source_points(itype, s_o, s_i)
-        n_pts = len(kx_arr)
+        if itype == 'freeform':
+            kx_arr, ky_arr, n_pts = self._sample_freeform_points()
+        else:
+            kx_arr, ky_arr = self._sample_source_points(itype, s_o, s_i)
+            n_pts = len(kx_arr)
 
         if n_pts > 0:
             ax_s.scatter(
@@ -335,15 +471,43 @@ class SourceDialog(QDialog):
         self.figure.tight_layout(pad=1.2)
         self.canvas.draw()
 
+    def _draw_freeform_pupil(self, ax):
+        """Render the freeform intensity map as an imshow on the pupil axes."""
+        if self._freeform_source is None:
+            return
+        pupil_map = self._freeform_source.get_map()
+        sigma_max = self._freeform_source.sigma_max
+        extent = [-sigma_max, sigma_max, -sigma_max, sigma_max]
+        ax.imshow(
+            pupil_map, origin='lower', extent=extent,
+            cmap='viridis', alpha=0.85, vmin=0, vmax=1,
+            aspect='equal', interpolation='nearest'
+        )
+
+    def _sample_freeform_points(self):
+        """Return (kx_arr, ky_arr, n_pts) for the freeform scatter plot."""
+        if self._freeform_source is None:
+            return np.array([]), np.array([]), 0
+        sx, sy, _w = self._freeform_source.get_source_points()
+        return sx, sy, len(sx)
+
     def get_illumination_config(self):
+        current_type = self.illum_combo.currentText()
         illum_map = {
             "Circular":   "circular",
             "Annular":    "annular",
             "Quadrupole": "quadrupole",
             "Quasar":     "quasar",
         }
+        if current_type == 'Freeform':
+            return {
+                'type': 'freeform',
+                'expression': self._freeform_expr.text(),
+                'sigma_max': self._sigma_max_spin.value(),
+                'pupil_size': 64,
+            }
         return {
-            "type":        illum_map[self.illum_combo.currentText()],
+            "type":        illum_map[current_type],
             "sigma_outer": self.sigma_outer_sb.value(),
             "sigma_inner": self.sigma_inner_sb.value(),
         }
