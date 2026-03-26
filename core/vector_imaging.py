@@ -252,29 +252,11 @@ class VectorImagingEngine:
                 # Input Jones vector for this polarization + source direction
                 J_in = self._jones_vector_for_source(pol, sp.kx, sp.ky)
 
-                # Shift mask spectrum: multiply by phase ramp in spatial domain
-                phase_ramp = np.exp(1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
-                # mask_fft already computed; recompute shifted version
-                # We store original mask_fft and apply shift each time
-                M_shifted = mask_fft * np.exp(
-                    1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
-                # Note: mask_fft here is FFT(mask); for shifted illumination
-                # we need FFT(mask * phase_ramp). Since mask_fft = FFT(mask),
-                # and FFT(mask * e^{i2pi(ksx*x+ksy*y)}) needs spatial domain.
-                # Recompute properly via convolution theorem is done below.
-                # Actually mask_fft passed in is FFT(mask_transmission),
-                # so M_shifted(fx,fy) = FFT(t * e^{i*phi})(fx,fy)
-                # = integrate t(x)*e^{i2pi(ksx*x+ksy*y)} * e^{-i2pi(fx*x+fy*y)}
-                # = FFT(t)[fx-ksx, fy-ksy]  (shift in freq domain)
-                # Implement as: IFFT(M) -> t, multiply phase_ramp, FFT back
-                # This is done correctly by passing phase_ramp * mask_spatial
-                # We need spatial domain mask. Store it separately.
-                # --> See note: caller passes mask_fft = FFT(mask_transmission)
-                #     We can recover mask_transmission = IFFT(mask_fft), but
-                #     it's better for caller to pass spatial domain mask.
-                #     For now: use IFFT to get spatial, apply ramp, FFT back.
-                #     This is equivalent to circular shift in freq domain.
+                # Shift mask spectrum for oblique illumination:
+                # FFT{t(x,y) * exp(-j2π(ksx*x + ksy*y))} = M(fx + ksx, fy + ksy)
+                # (negative sign — see fourier_optics.py for derivation)
                 mask_spatial = np.fft.ifft2(mask_fft)
+                phase_ramp = np.exp(-1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
                 M_shifted = np.fft.fft2(mask_spatial * phase_ramp)
 
                 # Apply Jones pupil: E_out = J @ J_in * M_shifted

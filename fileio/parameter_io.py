@@ -85,7 +85,7 @@ class ParameterIO:
                 'dose': 1.0,
                 'A': 0.8,
                 'B': 0.1,
-                'C': 0.01,
+                'C': 1.0,
                 'peb_sigma_nm': 30.0,
                 'quantum_efficiency': 0.5,
                 'amplification': 50.0,
