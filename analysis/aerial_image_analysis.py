@@ -209,14 +209,22 @@ class AerialImageAnalyzer:
         I_min = float(np.min(intensity_2d))
         contrast = self.compute_contrast(intensity_2d)
 
-        # CD from center horizontal profile (row at y=N//2, scanning along x)
-        # Use actual image dimensions so we never index out of bounds
-        n_rows = intensity_2d.shape[0]
+        # Try both scan directions; use whichever gives more threshold crossings.
+        # The line/space test pattern varies along Y, so the column scan wins there,
+        # while user-loaded GDS layouts may vary along X.
+        n_rows, n_cols = intensity_2d.shape
         profile_x = intensity_2d[n_rows // 2, :]
-        cd = self._cd_from_profile(profile_x, threshold)
+        profile_y = intensity_2d[:, n_cols // 2]
+
+        def _count_crossings(p):
+            return sum(1 for i in range(len(p) - 1)
+                       if (p[i] - threshold) * (p[i + 1] - threshold) <= 0)
+
+        profile = profile_y if _count_crossings(profile_y) > _count_crossings(profile_x) else profile_x
+        cd = self._cd_from_profile(profile, threshold)
 
         # NILS
-        nils = self.compute_nils(profile_x, cd, threshold)
+        nils = self.compute_nils(profile, cd, threshold)
 
         return AerialImageMetrics(
             cd_nm=cd,
