@@ -323,17 +323,27 @@ class TransferMatrixEngine:
         amplitude_at[0] = np.array([1.0 + 0j, r], dtype=complex)
 
         for i in range(1, N):
-            # Interface matrix from i-1 to i
+            # First propagate through layer i-1 to its bottom surface, then
+            # cross the interface into layer i.  Layer 0 is semi-infinite so
+            # no propagation is needed for i==1.
+            amp = amplitude_at[i - 1]
+            if i > 1:
+                t_prev = stack.layers[i - 1].thickness_nm
+                if t_prev > 0:
+                    P_prev = self._propagation_matrix(kz_list[i - 1], t_prev)
+                    amp = P_prev @ amp
+
+            # Interface matrix from layer i-1 → layer i
             D = self._interface_matrix(n_list[i - 1], n_list[i],
                                        kz_list[i - 1], kz_list[i], pol)
             try:
-                ev = np.linalg.solve(D, amplitude_at[i - 1])
+                ev = np.linalg.solve(D, amp)
             except np.linalg.LinAlgError:
                 # Singular interface matrix (degenerate stack); propagate
                 # forward amplitude unchanged and zero reflected amplitude.
-                ev = np.array([amplitude_at[i - 1][0], 0.0 + 0j], dtype=complex)
+                ev = np.array([amp[0], 0.0 + 0j], dtype=complex)
             amplitude_at[i] = ev
-            # amplitude_at[i] is already at top of layer i; no propagation needed here
+            # amplitude_at[i] now holds [E+, E-] at the TOP of layer i
 
         intensity = np.zeros(len(z_positions), dtype=float)
         for iz, z in enumerate(z_positions):
