@@ -72,13 +72,13 @@ class ThinScalarMask:
         pattern = np.asarray(pattern, dtype=np.float64)
         if self.mask_type == 'binary':
             self._transmission = pattern.astype(np.complex128)
-        elif self.mask_type == 'attpSM'.lower() or self.mask_type == 'attpSM':
+        elif self.mask_type in ('attpsm', 'att_psm'):
             # Opaque regions get attenuated PSM transmission
             att_phasor = np.sqrt(self.att_transmission) * np.exp(1j * self.phase_shift)
             self._transmission = np.where(pattern > 0.5,
                                           1.0 + 0j,
                                           att_phasor)
-        elif self.mask_type == 'altpsm':
+        elif self.mask_type in ('altpsm', 'alt_psm'):
             # Alternating PSM: clear regions alternate phase
             self._transmission = np.where(pattern > 0.5,
                                           np.exp(1j * self.phase_shift),

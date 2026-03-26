@@ -41,9 +41,10 @@ class ImagingSystem:
 
     def _get_source(self) -> BaseSource:
         if self._source is None:
-            cfg = dict(self._params)
-            cfg.update(self._params.get('illumination', {}))
-            self._source = create_source(cfg)
+            # create_source() expects 'illumination' as a nested dict, plus
+            # top-level 'NA' and 'wavelength_nm'.  Pass params directly —
+            # they already have the correct structure.
+            self._source = create_source(self._params)
         return self._source
 
     def _get_fourier_engine(self) -> FourierOpticsEngine:

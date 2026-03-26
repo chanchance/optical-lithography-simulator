@@ -12,7 +12,7 @@ from typing import Optional, Dict, Tuple, Callable
 # Physical constants
 C_LIGHT = 2.998e8      # Speed of light (m/s)
 EPS_0 = 8.854e-12      # Permittivity of free space (F/m)
-MU_0 = 1.257e-6        # Permeability of free space (H/m)
+MU_0 = 4.0 * np.pi * 1e-7  # Permeability of free space (H/m), exact
 
 
 class YeeGrid:
