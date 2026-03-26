@@ -108,12 +108,12 @@ class ResultsExporter:
         Save a 5-panel figure (aerial image, mask, overlay, cross-section,
         metrics text) as PNG.
         """
-        import matplotlib
-        matplotlib.use('Agg')
-        import matplotlib.pyplot as plt
+        # Use Figure directly — avoids matplotlib.use('Agg') which raises
+        # an error when a Qt backend is already active (e.g. called from GUI)
+        from matplotlib.figure import Figure
         from matplotlib.gridspec import GridSpec
 
-        fig = plt.figure(figsize=(14, 9), dpi=dpi)
+        fig = Figure(figsize=(14, 9), dpi=dpi)
         fig.patch.set_facecolor('#1a1a2e')
         gs = GridSpec(2, 3, figure=fig, hspace=0.4, wspace=0.35)
 
@@ -153,19 +153,34 @@ class ResultsExporter:
         ax_overlay.set_title('Overlay', color='white')
         ax_overlay.set_facecolor('#16213e')
 
-        # Cross-section (center row)
+        # Cross-section: pick direction with more threshold crossings
         if result.aerial_image is not None:
-            mid = result.aerial_image.shape[0] // 2
-            profile = result.aerial_image[mid, :]
+            threshold = result.metrics.get('threshold', 0.3)
+            ai = result.aerial_image
+            row_p = ai[ai.shape[0] // 2, :]
+            col_p = ai[:, ai.shape[1] // 2]
+
+            def _nc(p):
+                return sum(1 for i in range(len(p) - 1)
+                           if (p[i] - threshold) * (p[i + 1] - threshold) <= 0)
+
+            if _nc(col_p) > _nc(row_p):
+                profile = col_p
+                cs_title = 'Cross-section (center col)'
+            else:
+                profile = row_p
+                cs_title = 'Cross-section (center row)'
+
             x = np.linspace(extent[0], extent[1], len(profile)) if extent else np.arange(len(profile))
             ax_cs.plot(x, profile, color='#1a6bb5', linewidth=1.4)
-            threshold = result.metrics.get('threshold', 0.3)
             ax_cs.axhline(threshold, color='red', linestyle='--', linewidth=0.9,
                           label='Threshold {:.2f}'.format(threshold))
-            ax_cs.set_ylim(0, 1)
+            ax_cs.set_ylim(0, max(1.0, float(profile.max())) * 1.05)
             ax_cs.legend(fontsize=8)
             ax_cs.set_facecolor('#16213e')
-        ax_cs.set_title('Cross-section (center row)', color='white')
+        else:
+            cs_title = 'Cross-section'
+        ax_cs.set_title(cs_title, color='white')
 
         # Metrics text panel
         ax_text.set_facecolor('#16213e')
@@ -182,7 +197,6 @@ class ResultsExporter:
                 spine.set_color('#333355')
 
         fig.savefig(path, dpi=dpi, bbox_inches='tight', facecolor=fig.get_facecolor())
-        plt.close(fig)
 
     # ------------------------------------------------------------------
     # Text report

@@ -381,7 +381,7 @@ class AnalysisPanel(QWidget):
         ax.clear()
         self._style_ax(ax, "Bossung Curves")
 
-        cmap = cm.get_cmap('tab10')
+        cmap = cm.colormaps.get_cmap('tab10') if hasattr(cm, 'colormaps') else cm.get_cmap('tab10')
         for i, curve in enumerate(curves):
             focus, cd = curve.to_arrays()
             color = cmap(i % 10)
