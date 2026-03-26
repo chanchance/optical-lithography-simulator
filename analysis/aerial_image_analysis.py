@@ -60,9 +60,9 @@ class AerialImageAnalyzer:
             idx = np.clip(idx, 0, N-1)
 
         if direction == 'x':
-            profile = intensity_2d[:, idx]
+            profile = intensity_2d[idx, :]   # row = scan along x at y=idx
         else:
-            profile = intensity_2d[idx, :]
+            profile = intensity_2d[:, idx]   # column = scan along y at x=idx
 
         return self._cd_from_profile(profile, threshold)
 
@@ -209,9 +209,9 @@ class AerialImageAnalyzer:
         I_min = float(np.min(intensity_2d))
         contrast = self.compute_contrast(intensity_2d)
 
-        # CD from center horizontal profile
+        # CD from center horizontal profile (row at y=N//2, scanning along x)
         N = self.grid_size
-        profile_x = intensity_2d[:, N // 2]
+        profile_x = intensity_2d[N // 2, :]
         cd = self._cd_from_profile(profile_x, threshold)
 
         # NILS

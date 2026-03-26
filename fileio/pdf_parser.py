@@ -48,7 +48,8 @@ class PDFParser:
         }
 
         with pdfplumber.open(self.pdf_path) as pdf:
-            self._pages_cache = pdf.pages
+            # Do NOT cache pdf.pages — the file handle closes after the
+            # `with` block, making cached page objects invalid.
             all_text = []
 
             for i, page in enumerate(pdf.pages):

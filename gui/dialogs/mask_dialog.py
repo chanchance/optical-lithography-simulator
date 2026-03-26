@@ -32,7 +32,8 @@ class MaskDialog(QDialog if QDialog != object else object):
 
         self.type_combo = QComboBox()
         self.type_combo.addItems(['Binary', 'AttPSM (6%)', 'AltPSM'])
-        idx = {'binary': 0, 'attPSM': 1, 'altPSM': 2}.get(self._mask_type, 0)
+        idx = {'binary': 0, 'att_psm': 1, 'attpsm': 1, 'alt_psm': 2, 'altpsm': 2}.get(
+            self._mask_type.lower(), 0)
         self.type_combo.setCurrentIndex(idx)
         form.addRow('Mask type:', self.type_combo)
 
@@ -45,6 +46,6 @@ class MaskDialog(QDialog if QDialog != object else object):
         layout.addWidget(buttons)
 
     def get_mask_type(self) -> str:
-        """Return selected mask type key."""
-        map_ = {0: 'binary', 1: 'attPSM', 2: 'altPSM'}
+        """Return selected mask type key (lowercase, consistent with mask_model)."""
+        map_ = {0: 'binary', 1: 'att_psm', 2: 'alt_psm'}
         return map_.get(self.type_combo.currentIndex(), 'binary')
