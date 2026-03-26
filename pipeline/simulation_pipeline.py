@@ -117,8 +117,8 @@ class SimulationPipeline:
         except Exception as e:
             result.status = 'failed'
             result.error_msg = str(e)
-            import traceback
-            traceback.print_exc()
+            import logging
+            logging.getLogger(__name__).exception("Simulation failed")
 
         return result
 
