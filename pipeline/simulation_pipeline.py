@@ -224,7 +224,25 @@ class SimulationPipeline:
 
     def _step_compute_aerial_image(self, config: Dict, mask_grid: np.ndarray,
                                    source, on_progress) -> np.ndarray:
-        """Compute aerial image using Fourier optics."""
+        """Compute aerial image using the configured simulation mode."""
+        sim_cfg = config.get('simulation', {})
+        mode = sim_cfg.get('mode', 'fourier_optics')
+
+        if mode == 'fdtd':
+            from core.imaging_system import ImagingSystem
+            system = ImagingSystem(config)
+
+            def _prog(frac):
+                if on_progress:
+                    on_progress('FDTD', int(frac * 100))
+
+            aerial_image = system._run_fdtd(mask_grid, _prog)
+            litho_fdtd = config.get('lithography', {})
+            dose_factor = litho_fdtd.get('dose_factor', 1.0)
+            if dose_factor != 1.0:
+                aerial_image = aerial_image * dose_factor
+            return aerial_image
+
         from core.fourier_optics import FourierOpticsEngine
 
         litho = config.get('lithography', {})

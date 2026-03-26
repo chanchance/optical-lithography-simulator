@@ -51,9 +51,8 @@ class SimulationPanel(QWidget):
 
         self._mode_group = QButtonGroup(self)
         self.fourier_radio = QRadioButton("Fourier Optics  (fast, scalar)")
-        self.fdtd_radio = QRadioButton("FDTD  (rigorous EM, slow)  — not yet implemented")
-        self.fdtd_radio.setEnabled(False)
-        self.fdtd_radio.setToolTip("FDTD mode is not yet implemented. Fourier Optics will be used.")
+        self.fdtd_radio = QRadioButton("FDTD  (rigorous EM, slow)")
+        self.fdtd_radio.setToolTip("Rigorous FDTD simulation. Accurate for EUV/thick masks. Takes minutes per point.")
         self.fourier_radio.setChecked(True)
         self._mode_group.addButton(self.fourier_radio, 0)
         self._mode_group.addButton(self.fdtd_radio, 1)
