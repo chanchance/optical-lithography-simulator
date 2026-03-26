@@ -248,7 +248,7 @@ class ResultsExporter:
             ('Status',   result.status),
         ]
         for k, v in result.metrics.items():
-            if k not in {'dof_nm', 'i_max', 'i_min', 'threshold'}:
+            if k not in {'cd_nm', 'nils', 'contrast', 'dof_nm', 'i_max', 'i_min', 'threshold'}:
                 rows.append((k, str(v)))
         return rows
 
