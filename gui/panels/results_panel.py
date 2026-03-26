@@ -47,7 +47,7 @@ class ResultsPanel(QWidget):
         self.figure = Figure(figsize=(12, 8), dpi=theme.MPL_DPI, constrained_layout=True)
         self.figure.patch.set_facecolor(theme.BG_PRIMARY)
 
-        gs = GridSpec(2, 8, figure=self.figure, hspace=0.4, wspace=0.4)
+        gs = GridSpec(2, 8, figure=self.figure)
         self.ax_aerial  = self.figure.add_subplot(gs[0, 0:2])
         self.ax_mask    = self.figure.add_subplot(gs[0, 2:4])
         self.ax_overlay = self.figure.add_subplot(gs[0, 4:6])
