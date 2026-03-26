@@ -233,6 +233,13 @@ class SimulationPanel(QWidget):
         self._set_led('green')
         self.eta_label.setText("")
 
+    def on_simulation_stopped(self):
+        """Called when simulation is stopped by the user (not completed normally)."""
+        self.run_btn.setEnabled(True)
+        self.stop_btn.setEnabled(False)
+        self._set_led('gray')
+        self.eta_label.setText("")
+
     def on_simulation_error(self, msg):
         self.append_log("[ERROR] " + msg)
         self.status_label.setText("Failed")

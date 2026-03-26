@@ -249,7 +249,7 @@ class AnalysisPanel(QWidget):
         self.figure = Figure(figsize=(12, 8), dpi=theme.MPL_DPI, constrained_layout=True)
         self.figure.patch.set_facecolor(theme.BG_PRIMARY)
 
-        gs = GridSpec(2, 2, figure=self.figure, hspace=0.45, wspace=0.35)
+        gs = GridSpec(2, 2, figure=self.figure)
         self.ax_bossung = self.figure.add_subplot(gs[0, 0])
         self.ax_fem     = self.figure.add_subplot(gs[0, 1])
         self.ax_pw      = self.figure.add_subplot(gs[1, 0])

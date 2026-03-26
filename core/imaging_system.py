@@ -77,7 +77,7 @@ class ImagingSystem:
     def _run_fdtd(self, mask: np.ndarray,
                   on_progress: Optional[Callable]) -> np.ndarray:
         """Run FDTD simulation for rigorous EM calculation."""
-        fdtd_cfg = self.config.get('simulation', {}).get('fdtd', {})
+        fdtd_cfg = dict(self.config.get('simulation', {}).get('fdtd', {}))
         fdtd_cfg['wavelength_nm'] = self._params['wavelength_nm']
 
         N = self._params['grid_size']

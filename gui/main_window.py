@@ -379,7 +379,7 @@ class MainWindow(QMainWindow):
             self._sim_thread.request_stop()
             self._sim_thread.wait(3000)
             self._status("Simulation stopped.")
-            self.sim_panel.on_simulation_done()
+            self.sim_panel.on_simulation_stopped()
             self.status_progress.setVisible(False)
 
     def _on_progress(self, step, pct):
