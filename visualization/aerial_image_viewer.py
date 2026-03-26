@@ -129,10 +129,10 @@ class AerialImageViewer:
 
         x_nm = np.arange(N) * self.dx_nm
         if direction == 'x':
-            profile = intensity_2d[:, idx]
+            profile = intensity_2d[idx, :]   # row = scan along x at y=idx
             xlabel = 'X (nm)'
         else:
-            profile = intensity_2d[idx, :]
+            profile = intensity_2d[:, idx]   # column = scan along y at x=idx
             xlabel = 'Y (nm)'
 
         ax.plot(x_nm, profile, 'b-', linewidth=2, label='Intensity')
