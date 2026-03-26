@@ -80,14 +80,25 @@ class RCWAEngine:
         Compute mask near-field amplitude via RCWA.
         mask_profile: 1D array of mask transmission values
         pitch_nm: grating pitch in nm
+        wavelength_nm, n_orders: optional per-call overrides (do not persist)
         Returns: complex 1D near-field amplitude (same size as mask_profile)
         """
-        if wavelength_nm is not None:
-            self.params.wavelength_nm = wavelength_nm
-        if n_orders is not None:
-            self.params.n_orders = n_orders
+        # Apply overrides without permanently mutating self.params.
+        # Directly mutating self.params was a bug: subsequent calls would use
+        # the overridden values instead of the engine's configured defaults.
+        orig_wl = self.params.wavelength_nm
+        orig_n = self.params.n_orders
+        try:
+            if wavelength_nm is not None:
+                self.params.wavelength_nm = wavelength_nm
+            if n_orders is not None:
+                self.params.n_orders = n_orders
 
-        result = self.compute_diffraction_orders(mask_profile, pitch_nm)
+            result = self.compute_diffraction_orders(mask_profile, pitch_nm)
+        finally:
+            self.params.wavelength_nm = orig_wl
+            self.params.n_orders = orig_n
+
         orders = result['orders']
         amplitudes = result['amplitude']
 
