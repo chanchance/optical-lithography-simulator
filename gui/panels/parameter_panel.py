@@ -125,7 +125,7 @@ class ParameterPanel(QWidget):
         form.addRow("NA:", self.na_sb)
 
         self.illum_combo = QComboBox()
-        self.illum_combo.addItems(["Circular", "Annular", "Quadrupole", "Quasar"])
+        self.illum_combo.addItems(["Circular", "Annular", "Quadrupole", "Quasar", "Dipole", "Freeform"])
         self.illum_combo.setCurrentText("Annular")
         self.illum_combo.setToolTip("Illumination pupil shape")
         self.illum_combo.currentTextChanged.connect(self._on_illum_changed)
@@ -152,6 +152,79 @@ class ParameterPanel(QWidget):
         )
         self.sigma_inner_sb.valueChanged.connect(self._on_spinbox_changed)
         form.addRow("sigma inner:", self.sigma_inner_sb)
+
+        # ---- Illumination-type-specific extra controls ----
+        self.illum_stack = QStackedWidget()
+        self.illum_stack.setVisible(False)
+
+        # Page 0: placeholder for standard illumination types
+        self.illum_stack.addWidget(QWidget())
+
+        # Page 1: Dipole controls
+        dipole_page = QWidget()
+        dip_form = QFormLayout(dipole_page)
+        dip_form.setContentsMargins(0, 4, 0, 4)
+        dip_form.setSpacing(6)
+
+        self.dipole_sigma_center_sb = QDoubleSpinBox()
+        self.dipole_sigma_center_sb.setRange(0.1, 0.95)
+        self.dipole_sigma_center_sb.setValue(0.5)
+        self.dipole_sigma_center_sb.setDecimals(2)
+        self.dipole_sigma_center_sb.setSingleStep(0.05)
+        self.dipole_sigma_center_sb.setToolTip("Dipole pole center sigma")
+        self.dipole_sigma_center_sb.valueChanged.connect(self._on_spinbox_changed)
+        dip_form.addRow("sigma center:", self.dipole_sigma_center_sb)
+
+        self.dipole_sigma_outer_sb = QDoubleSpinBox()
+        self.dipole_sigma_outer_sb.setRange(0.01, 1.0)
+        self.dipole_sigma_outer_sb.setValue(0.7)
+        self.dipole_sigma_outer_sb.setDecimals(2)
+        self.dipole_sigma_outer_sb.setSingleStep(0.05)
+        self.dipole_sigma_outer_sb.setToolTip("Dipole outer sigma")
+        self.dipole_sigma_outer_sb.valueChanged.connect(self._on_spinbox_changed)
+        dip_form.addRow("sigma outer:", self.dipole_sigma_outer_sb)
+
+        self.dipole_sigma_inner_sb = QDoubleSpinBox()
+        self.dipole_sigma_inner_sb.setRange(0.0, 1.0)
+        self.dipole_sigma_inner_sb.setValue(0.3)
+        self.dipole_sigma_inner_sb.setDecimals(2)
+        self.dipole_sigma_inner_sb.setSingleStep(0.05)
+        self.dipole_sigma_inner_sb.setToolTip("Dipole inner sigma")
+        self.dipole_sigma_inner_sb.valueChanged.connect(self._on_spinbox_changed)
+        dip_form.addRow("sigma inner:", self.dipole_sigma_inner_sb)
+
+        self.dipole_orientation_combo = QComboBox()
+        self.dipole_orientation_combo.addItems(["X", "Y"])
+        self.dipole_orientation_combo.setToolTip("Dipole orientation axis")
+        self.dipole_orientation_combo.currentTextChanged.connect(self._on_spinbox_changed)
+        dip_form.addRow("Orientation:", self.dipole_orientation_combo)
+
+        self.dipole_opening_angle_sb = QDoubleSpinBox()
+        self.dipole_opening_angle_sb.setRange(10.0, 90.0)
+        self.dipole_opening_angle_sb.setValue(30.0)
+        self.dipole_opening_angle_sb.setDecimals(1)
+        self.dipole_opening_angle_sb.setSingleStep(5.0)
+        self.dipole_opening_angle_sb.setSuffix("\u00b0")
+        self.dipole_opening_angle_sb.setToolTip("Dipole opening angle (degrees)")
+        self.dipole_opening_angle_sb.valueChanged.connect(self._on_spinbox_changed)
+        dip_form.addRow("Opening angle:", self.dipole_opening_angle_sb)
+
+        self.illum_stack.addWidget(dipole_page)
+
+        # Page 2: Freeform label
+        freeform_page = QWidget()
+        ff_layout = QVBoxLayout(freeform_page)
+        ff_layout.setContentsMargins(0, 4, 0, 4)
+        ff_lbl = QLabel(
+            "Use Source Preview dialog\n(Simulation \u2192 Source Preview)\n"
+            "to define freeform illumination."
+        )
+        ff_lbl.setObjectName("caption")
+        ff_lbl.setWordWrap(True)
+        ff_layout.addWidget(ff_lbl)
+        self.illum_stack.addWidget(freeform_page)
+
+        form.addRow(self.illum_stack)
 
         self.dose_factor_sb = QDoubleSpinBox()
         self.dose_factor_sb.setRange(0.5, 2.0)
@@ -572,8 +645,22 @@ class ParameterPanel(QWidget):
     # ------------------------------------------------------------------
 
     def _on_illum_changed(self, text):
+        standard = ["Circular", "Annular", "Quadrupole", "Quasar"]
+        self.sigma_outer_sb.setEnabled(text in standard)
         self.sigma_inner_sb.setEnabled(text in ["Annular", "Quadrupole", "Quasar"])
-        self._illum_override = None  # user switched type — drop any saved override
+        if text == "Dipole":
+            self.illum_stack.setCurrentIndex(1)
+            self.illum_stack.setVisible(True)
+        elif text == "Freeform":
+            self.illum_stack.setCurrentIndex(2)
+            self.illum_stack.setVisible(True)
+        else:
+            self.illum_stack.setCurrentIndex(0)
+            self.illum_stack.setVisible(False)
+        # Keep freeform override when user selects "Freeform" from combo
+        if not (text == "Freeform" and self._illum_override is not None
+                and self._illum_override.get("type") == "freeform"):
+            self._illum_override = None
         self.params_changed.emit()
 
     def _on_hopkins_toggled(self, state):
@@ -610,21 +697,33 @@ class ParameterPanel(QWidget):
             "Quadrupole": "quadrupole", "Quasar": "quasar",
         }
         mask_map = {"Binary": "binary", "AttPSM": "att_psm", "AltPSM": "alt_psm"}
+        current_illum = self.illum_combo.currentText()
+        if self._illum_override is not None:
+            illum_cfg = self._illum_override
+        elif current_illum == "Dipole":
+            illum_cfg = {
+                "type": "dipole",
+                "sigma_center": self.dipole_sigma_center_sb.value(),
+                "sigma_outer": self.dipole_sigma_outer_sb.value(),
+                "sigma_inner": self.dipole_sigma_inner_sb.value(),
+                "orientation": self.dipole_orientation_combo.currentText().lower(),
+                "opening_angle_deg": self.dipole_opening_angle_sb.value(),
+            }
+        elif current_illum == "Freeform":
+            illum_cfg = {"type": "freeform"}
+        else:
+            illum_cfg = {
+                "type": illum_map[current_illum],
+                "sigma_outer": self.sigma_outer_sb.value(),
+                "sigma_inner": self.sigma_inner_sb.value(),
+            }
         return {
             "lithography": {
                 "wavelength_nm": self.wavelength_sb.value(),
                 "NA": self.na_sb.value(),
                 "defocus_nm": self.defocus_sb.value(),
                 "dose_factor": self.dose_factor_sb.value(),
-                "illumination": (
-                    self._illum_override
-                    if self._illum_override is not None
-                    else {
-                        "type": illum_map[self.illum_combo.currentText()],
-                        "sigma_outer": self.sigma_outer_sb.value(),
-                        "sigma_inner": self.sigma_inner_sb.value(),
-                    }
-                ),
+                "illumination": illum_cfg,
                 "mask_type": mask_map[self.mask_combo.currentText()],
                 "aberrations": {
                     "zernike": [sb.value() for sb in self.zernike_sbs],
@@ -678,6 +777,7 @@ class ParameterPanel(QWidget):
         illum_rmap = {
             "circular": "Circular", "annular": "Annular",
             "quadrupole": "Quadrupole", "quasar": "Quasar",
+            "dipole": "Dipole", "freeform": "Freeform",
         }
         mask_rmap = {"binary": "Binary", "att_psm": "AttPSM", "alt_psm": "AltPSM"}
 
@@ -691,13 +791,22 @@ class ParameterPanel(QWidget):
             self.sigma_inner_sb.setValue(illum.get("sigma_inner", 0.55))
             illum_type = illum.get("type", "annular")
             if illum_type in illum_rmap:
-                # Known type — display it in the combo and clear any override.
-                self._illum_override = None
                 self.illum_combo.setCurrentText(illum_rmap[illum_type])
+                if illum_type == "dipole":
+                    self._illum_override = None
+                    self.dipole_sigma_center_sb.setValue(illum.get("sigma_center", 0.5))
+                    self.dipole_sigma_outer_sb.setValue(illum.get("sigma_outer", 0.7))
+                    self.dipole_sigma_inner_sb.setValue(illum.get("sigma_inner", 0.3))
+                    self.dipole_orientation_combo.setCurrentText(
+                        illum.get("orientation", "x").upper()
+                    )
+                    self.dipole_opening_angle_sb.setValue(illum.get("opening_angle_deg", 30.0))
+                elif illum_type == "freeform":
+                    # Store full freeform config (from SourceDialog) as override
+                    self._illum_override = dict(illum) if len(illum) > 1 else None
+                else:
+                    self._illum_override = None
             else:
-                # Unsupported type (e.g. "dipole", "freeform") — store the full
-                # config so get_config() can return it intact.  Leave the combo
-                # unchanged so the panel doesn't show a misleading type.
                 self._illum_override = dict(illum)
             self.mask_combo.setCurrentText(
                 mask_rmap.get(litho.get("mask_type", "binary"), "Binary")

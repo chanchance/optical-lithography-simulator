@@ -398,76 +398,78 @@ class AnalysisPanel(QWidget):
         self._plot_pw_from_bossung(curves)
 
     def _plot_pw_from_bossung(self, curves):
-        """Draw DOF vs EL process window ellipse from Bossung curve data."""
-        # Find nominal curve: dose closest to 1.0, not blindly the middle index
-        # (middle index is wrong when the dose sweep is asymmetric around 1.0)
-        ni = min(range(len(curves)), key=lambda i: abs(curves[i].dose_factor - 1.0))
-        nominal = curves[ni]
-        dof = nominal.depth_of_focus_nm
-
-        # Compute true EL: dose range where CD at best focus stays within
-        # ±cd_tolerance of nominal CD.  Interpolating cd_points at the
-        # nominal best_focus_nm gives CD for each dose curve at that focus.
-        cd_tol_frac = self.cd_tol_sb.value() / 100.0
-        cd_at_best = []
-        for c in curves:
-            if len(c.focus_points) >= 2:
-                cd_bf = float(np.interp(nominal.best_focus_nm,
-                                        c.focus_points, c.cd_points))
-                cd_at_best.append((c.dose_factor, cd_bf))
-        nominal_cd = cd_at_best[ni][1] if ni < len(cd_at_best) else 0.0
-        if nominal_cd > 0 and cd_at_best:
-            in_window = [df for df, cd in cd_at_best
-                         if cd > 0 and abs(cd - nominal_cd) / nominal_cd <= cd_tol_frac]
-            el_pct = (max(in_window) - min(in_window)) * 100.0 if len(in_window) >= 2 else 0.0
-        else:
-            el_pct = 0.0
+        """Draw process window from Bossung curve data using real pass/fail grid."""
+        from analysis.process_window import ProcessWindow
 
         ax = self.ax_pw
         ax.clear()
         self._style_ax(ax, "Process Window")
 
-        if dof > 0 and el_pct > 0:
-            ellipse = Ellipse(
-                xy=(nominal.best_focus_nm, 100.0),
-                width=max(dof, 1.0),
-                height=max(el_pct, 0.1),
-                facecolor=theme.ACCENT,
-                alpha=0.20,
-                edgecolor=theme.ACCENT,
-                linewidth=1.8,
-                zorder=2,
-            )
-            ax.add_patch(ellipse)
-            ax.plot(nominal.best_focus_nm, 100.0, '+',
-                    color=theme.ACCENT, markersize=12, markeredgewidth=1.8, zorder=3)
-            ax.axhline(100.0, color=theme.TEXT_TERTIARY, linestyle=':', linewidth=0.8, alpha=0.4, zorder=1)
-            ax.axvline(nominal.best_focus_nm, color=theme.TEXT_TERTIARY, linestyle=':', linewidth=0.8, alpha=0.4, zorder=1)
-            margin = max(dof, 30) * 1.6
-            ax.set_xlim(nominal.best_focus_nm - margin, nominal.best_focus_nm + margin)
-            ax.set_ylim(100.0 - el_pct * 1.8 - 1, 100.0 + el_pct * 1.8 + 1)
-            ax.set_xlabel("Defocus (nm)", fontsize=theme.MPL_LABEL)
-            ax.set_ylabel("Dose (%)", fontsize=theme.MPL_LABEL)
-            ax.set_title("Process Window  DOF={:.0f} nm  EL={:.1f}%".format(dof, el_pct),
-                         fontsize=theme.MPL_TITLE, fontweight='600', color=theme.TEXT_PRIMARY, pad=6)
-            ax.text(0.05, 0.95,
-                    "DOF={:.0f} nm\nEL={:.1f}%".format(dof, el_pct),
-                    transform=ax.transAxes, fontsize=theme.MPL_TICK,
-                    va='top', color=theme.TEXT_SECONDARY,
-                    bbox=dict(boxstyle='round,pad=0.3', fc=theme.BG_PRIMARY,
-                              ec=theme.BORDER, alpha=0.9))
-        else:
+        if not curves or len(curves) < 2:
             ax.text(0.5, 0.5, 'Insufficient data', ha='center', va='center',
                     fontsize=theme.MPL_LABEL, color=theme.TEXT_TERTIARY,
                     transform=ax.transAxes)
             ax.set_axis_off()
+            self.canvas.draw_idle()
+            return
+
+        focus_nm = np.array(curves[0].focus_points)
+        dose_axis = np.array([c.dose_factor for c in curves])
+
+        # Build cd_matrix [n_dose, n_focus] by interpolating each curve onto
+        # the shared focus_nm grid
+        cd_matrix = np.array([
+            np.interp(focus_nm, c.focus_points, c.cd_points) for c in curves
+        ])
+
+        # Nominal CD: dose closest to 1.0, focus closest to 0
+        ni = min(range(len(curves)), key=lambda i: abs(curves[i].dose_factor - 1.0))
+        fj = int(np.argmin(np.abs(focus_nm)))
+        nominal_cd = cd_matrix[ni, fj]
+
+        if nominal_cd <= 0:
+            ax.text(0.5, 0.5, 'Insufficient data', ha='center', va='center',
+                    fontsize=theme.MPL_LABEL, color=theme.TEXT_TERTIARY,
+                    transform=ax.transAxes)
+            ax.set_axis_off()
+            self.canvas.draw_idle()
+            return
+
+        cd_tol_frac = self.cd_tol_sb.value() / 100.0
+        pass_fail = np.abs(cd_matrix - nominal_cd) / (nominal_cd + 1e-9) <= cd_tol_frac
+
+        pw = ProcessWindow(2000.0, 256)
+        pw_result = pw.compute_from_grid(pass_fail, dose_axis * 100.0, focus_nm)
+
+        dof = pw_result.dof_nm
+        el_pct = pw_result.el_pct
+        best_focus = pw_result.best_focus_nm
+
+        ax.pcolormesh(focus_nm, dose_axis * 100.0, pass_fail.astype(float),
+                      cmap='RdYlGn', alpha=0.45, vmin=0, vmax=1)
+        if np.any(pass_fail):
+            ax.contour(focus_nm, dose_axis * 100.0, pass_fail.astype(float),
+                       levels=[0.5], colors=[theme.ACCENT], linewidths=1.5)
+            ax.plot(best_focus, pw_result.nominal_dose_pct, '+',
+                    color=theme.ACCENT, markersize=12, markeredgewidth=1.8, zorder=3)
+
+        ax.set_xlabel("Defocus (nm)", fontsize=theme.MPL_LABEL)
+        ax.set_ylabel("Dose (%)", fontsize=theme.MPL_LABEL)
+        ax.set_title("Process Window  DOF={:.0f} nm  EL={:.1f}%".format(dof, el_pct),
+                     fontsize=theme.MPL_TITLE, fontweight='600', color=theme.TEXT_PRIMARY, pad=6)
+        ax.text(0.05, 0.95,
+                "DOF={:.0f} nm\nEL={:.1f}%".format(dof, el_pct),
+                transform=ax.transAxes, fontsize=theme.MPL_TICK,
+                va='top', color=theme.TEXT_SECONDARY,
+                bbox=dict(boxstyle='round,pad=0.3', fc=theme.BG_PRIMARY,
+                          ec=theme.BORDER, alpha=0.9))
 
         self.canvas.draw_idle()
         self._update_metrics_table(
             cd_target=self.cd_target_sb.value(),
             nils=self._result.nils if self._result else 0.0,
             meef=None,
-            best_focus=nominal.best_focus_nm,
+            best_focus=best_focus,
             dof=dof,
             el=el_pct,
         )
