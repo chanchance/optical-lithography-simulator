@@ -149,6 +149,17 @@ class ParameterPanel(QWidget):
         self.sigma_inner_sb.valueChanged.connect(self._on_spinbox_changed)
         form.addRow("sigma inner:", self.sigma_inner_sb)
 
+        self.dose_factor_sb = QDoubleSpinBox()
+        self.dose_factor_sb.setRange(0.5, 2.0)
+        self.dose_factor_sb.setValue(1.0)
+        self.dose_factor_sb.setDecimals(2)
+        self.dose_factor_sb.setSingleStep(0.05)
+        self.dose_factor_sb.setToolTip(
+            "Scale factor for aerial image intensity (1.0 = nominal dose)"
+        )
+        self.dose_factor_sb.valueChanged.connect(self._on_spinbox_changed)
+        form.addRow("Dose Factor:", self.dose_factor_sb)
+
         layout.addWidget(litho_group)
 
         # ---- Defocus ----
@@ -591,6 +602,7 @@ class ParameterPanel(QWidget):
                 "wavelength_nm": self.wavelength_sb.value(),
                 "NA": self.na_sb.value(),
                 "defocus_nm": self.defocus_sb.value(),
+                "dose_factor": self.dose_factor_sb.value(),
                 "illumination": {
                     "type": illum_map[self.illum_combo.currentText()],
                     "sigma_outer": self.sigma_outer_sb.value(),
@@ -657,6 +669,7 @@ class ParameterPanel(QWidget):
             self.wavelength_sb.setValue(litho.get("wavelength_nm", 193.0))
             self.na_sb.setValue(litho.get("NA", 0.93))
             self.defocus_sb.setValue(litho.get("defocus_nm", 0.0))
+            self.dose_factor_sb.setValue(litho.get("dose_factor", 1.0))
             self.sigma_outer_sb.setValue(illum.get("sigma_outer", 0.85))
             self.sigma_inner_sb.setValue(illum.get("sigma_inner", 0.55))
             self.illum_combo.setCurrentText(
