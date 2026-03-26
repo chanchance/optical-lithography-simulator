@@ -266,8 +266,11 @@ class SimulationPipeline:
         analyzer = AerialImageAnalyzer(domain_nm, N)
         metrics_obj = analyzer.analyze(aerial_image, threshold)
 
-        # Simple NILS-based DOF estimate: DOF ≈ λ/(NA² * NILS) * k2
-        # where k2 ≈ 0.5 is a process factor
+        # Simple NILS-based DOF estimate: DOF ≈ k2 * (λ/NA²) * (NILS/2)
+        # At NILS=2 this equals the Rayleigh value k2*λ/NA² (k2=0.5).
+        # The NILS/2 factor scales DOF linearly with image quality: a feature
+        # with NILS < 2 prints with narrower process latitude than the
+        # Rayleigh prediction.  Capped at NILS=4 (factor=2).
         litho_cfg2 = config.get('lithography', {})
         wl = float(litho_cfg2.get('wavelength_nm', 193.0))
         na = float(litho_cfg2.get('NA', 0.93))

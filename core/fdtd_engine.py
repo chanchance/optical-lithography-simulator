@@ -364,8 +364,9 @@ class FDTDSimulator:
             # Update E at n+1
             self._update_E_fields()
 
-            # Inject source
-            self.excite_plane_wave(n, polarization='TE')
+            # Inject source at t=(n+1)*dt: E has been updated to time n+1,
+            # so the soft-source amplitude must match that same instant.
+            self.excite_plane_wave(n + 1, polarization='TE')
 
             # Convergence check every period
             if n % check_interval == 0 and n > 0:
