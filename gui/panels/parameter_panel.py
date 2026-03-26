@@ -176,16 +176,16 @@ class ParameterPanel(QWidget):
         df_row = QHBoxLayout()
 
         self.defocus_slider = QSlider(Qt.Horizontal)
-        self.defocus_slider.setRange(-500, 500)
+        self.defocus_slider.setRange(-2000, 2000)
         self.defocus_slider.setValue(0)
-        self.defocus_slider.setTickInterval(100)
+        self.defocus_slider.setTickInterval(500)
         self.defocus_slider.setTickPosition(QSlider.TicksBelow)
         self.defocus_slider.setToolTip("Focal plane offset from best focus")
         self.defocus_slider.valueChanged.connect(self._slider_to_spinbox)
         df_row.addWidget(self.defocus_slider)
 
         self.defocus_sb = QDoubleSpinBox()
-        self.defocus_sb.setRange(-500.0, 500.0)
+        self.defocus_sb.setRange(-2000.0, 2000.0)
         self.defocus_sb.setValue(0.0)
         self.defocus_sb.setSuffix(" nm")
         self.defocus_sb.setDecimals(0)
@@ -198,8 +198,8 @@ class ParameterPanel(QWidget):
 
         # Min/max labels under the slider
         minmax_row = QHBoxLayout()
-        lbl_min = QLabel("-500 nm")
-        lbl_max = QLabel("+500 nm")
+        lbl_min = QLabel("-2000 nm")
+        lbl_max = QLabel("+2000 nm")
         lbl_min.setObjectName("caption")
         lbl_max.setObjectName("caption")
         minmax_row.addWidget(lbl_min)
