@@ -272,11 +272,19 @@ class ParameterPanel(QWidget):
         self.params_changed.emit()
 
     def _on_spinbox_changed(self):
-        """Any manual spinbox edit switches preset combo to 'Custom'."""
+        """Any manual spinbox edit switches preset combo to 'Custom'.
+        Also enforces sigma_inner < sigma_outer constraint."""
         if not self._applying_preset:
             self.preset_combo.blockSignals(True)
             self.preset_combo.setCurrentText("Custom")
             self.preset_combo.blockSignals(False)
+            # Enforce sigma_inner < sigma_outer for annular-type sources
+            if self.sigma_inner_sb.isEnabled():
+                if self.sigma_inner_sb.value() >= self.sigma_outer_sb.value():
+                    self.sigma_inner_sb.blockSignals(True)
+                    self.sigma_inner_sb.setValue(
+                        max(0.0, self.sigma_outer_sb.value() - 0.05))
+                    self.sigma_inner_sb.blockSignals(False)
         self.params_changed.emit()
 
     # ------------------------------------------------------------------

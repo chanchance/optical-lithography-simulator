@@ -94,9 +94,14 @@ class ProjectionOptic:
         # Circular aperture (binary)
         circ_mask = (rho <= 1.0).astype(np.float64)
 
-        # Defocus phase (W020 term)
-        # W(rho) = W020 * rho^2 + additional Zernike terms
-        W_defocus = (defocus_nm / self.wavelength_nm) * rho**2 * (self.NA**2)
+        # Defocus phase — rigorous formula from Hopkins theory:
+        #   W_defocus = (dz / lambda) * (sqrt(1 - (rho*NA)^2) - 1)
+        # The quadratic approx W ~ dz*NA^2*rho^2/lambda is only valid for
+        # small NA. For immersion (NA>1) the sqrt form is essential.
+        rho_NA = np.clip(rho * self.NA, 0, 1.0 - 1e-15)
+        W_defocus = (defocus_nm / self.wavelength_nm) * (
+            np.sqrt(1.0 - rho_NA**2) - 1.0
+        )
 
         # Full wavefront from Zernike model
         W_zernike = self.zernike.compute_wavefront(rho, phi)

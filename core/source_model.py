@@ -327,7 +327,17 @@ class FreeformSource:
 
 
 def create_source(config: dict):
-    """Factory function to create illumination source from config dict."""
+    """Factory function to create illumination source from config dict.
+
+    Validates parameters before constructing source objects:
+    - wavelength_nm > 0
+    - 0 < NA <= 1.35
+    - sigma values in valid ranges
+    - sigma_inner < sigma_outer for annular-type sources
+
+    Raises:
+        ValueError: on invalid parameters or unknown source type
+    """
     illum = config.get('illumination', config)
     source_type = illum.get('type', 'circular').lower()
     NA = config.get('NA', 0.93)
@@ -335,16 +345,45 @@ def create_source(config: dict):
     N = illum.get('N_source_points', 4)
     pol = illum.get('polarization', 'unpolarized')
 
+    # --- Parameter validation ---
+    if wl <= 0:
+        raise ValueError("wavelength_nm must be positive, got {}".format(wl))
+    if not (0 < NA <= 1.35):
+        raise ValueError("NA must be in (0, 1.35], got {}".format(NA))
+
     if source_type == 'circular':
-        return CircularSource(NA, illum.get('sigma_outer', 0.85), wl, N, pol)
+        sigma = illum.get('sigma_outer', 0.85)
+        if not (0 < sigma <= 1.0):
+            raise ValueError("sigma must be in (0, 1.0], got {}".format(sigma))
+        return CircularSource(NA, sigma, wl, N, pol)
     elif source_type == 'annular':
-        return AnnularSource(NA, illum.get('sigma_outer', 0.85),
-                             illum.get('sigma_inner', 0.55), wl, N, pol)
+        sigma_outer = illum.get('sigma_outer', 0.85)
+        sigma_inner = illum.get('sigma_inner', 0.55)
+        if sigma_inner >= sigma_outer:
+            raise ValueError(
+                "sigma_inner ({}) must be less than sigma_outer ({}) "
+                "for annular illumination".format(sigma_inner, sigma_outer))
+        if sigma_outer <= 0 or sigma_inner < 0:
+            raise ValueError(
+                "sigma values must be non-negative with sigma_outer > 0, "
+                "got inner={}, outer={}".format(sigma_inner, sigma_outer))
+        return AnnularSource(NA, sigma_outer, sigma_inner, wl, N, pol)
     elif source_type == 'quadrupole':
-        return QuadrupoleSource(NA, illum.get('sigma_c', 0.15),
-                                illum.get('sigma_r', 0.30), wl, N, pol)
+        sigma_c = illum.get('sigma_c', 0.15)
+        sigma_r = illum.get('sigma_r', 0.30)
+        if sigma_c <= 0 or sigma_r <= 0:
+            raise ValueError(
+                "sigma_c and sigma_r must be positive, got c={}, r={}".format(
+                    sigma_c, sigma_r))
+        return QuadrupoleSource(NA, sigma_c, sigma_r, wl, N, pol)
     elif source_type == 'quasar':
-        return QuasarSource(NA, illum.get('sigma_c', 0.15), illum.get('sigma_r', 0.30),
+        sigma_c = illum.get('sigma_c', 0.15)
+        sigma_r = illum.get('sigma_r', 0.30)
+        if sigma_c <= 0 or sigma_r <= 0:
+            raise ValueError(
+                "sigma_c and sigma_r must be positive, got c={}, r={}".format(
+                    sigma_c, sigma_r))
+        return QuasarSource(NA, sigma_c, sigma_r,
                             illum.get('theta_q', 45.0), wl, N, pol)
     elif source_type == 'freeform':
         expr = illum.get('expression', '')
