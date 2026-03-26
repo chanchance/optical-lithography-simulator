@@ -14,6 +14,9 @@ SUCCESS        = "#00C853"
 DANGER         = "#F44336"
 WARNING        = "#FF9800"
 
+# ── Bossung/FEM color palette (5 dose levels) ──────────────────────────────
+BOSSUNG_COLORS = ['#3182F6', '#00C853', '#FF9800', '#F44336', '#9C27B0']
+
 # ── Matplotlib ─────────────────────────────────────────────────────────────
 MPL_DPI    = 96
 MPL_TITLE  = 11
@@ -49,7 +52,8 @@ def get_qss() -> str:
     QTabBar::tab {{
         background: transparent;
         color: {TEXT_SECONDARY};
-        padding: 10px 20px;
+        padding: 8px 20px;
+        min-height: 36px;
         margin-right: 2px;
         border: none;
         border-bottom: 2px solid transparent;
@@ -58,7 +62,7 @@ def get_qss() -> str:
     }}
     QTabBar::tab:selected {{
         color: {ACCENT};
-        border-bottom: 2px solid {ACCENT};
+        border-bottom: 3px solid {ACCENT};
         font-weight: 600;
     }}
     QTabBar::tab:hover:!selected {{ color: {TEXT_PRIMARY}; background: {BG_TERTIARY}; }}
@@ -147,6 +151,7 @@ def get_qss() -> str:
         border: 1px solid {BORDER};
         border-radius: 6px;
         background: {BG_PRIMARY};
+        alternate-background-color: {BG_SECONDARY};
         gridline-color: {BORDER};
         font-size: 12px;
     }}
@@ -155,7 +160,7 @@ def get_qss() -> str:
     QHeaderView::section {{
         background: {BG_TERTIARY};
         color: {TEXT_SECONDARY};
-        font-weight: 600;
+        font-weight: 700;
         font-size: 11px;
         padding: 6px 8px;
         border: none;
