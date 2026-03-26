@@ -44,7 +44,7 @@ class ConfigValidator:
                 'NA > 0.33 is unusual for EUV (wavelength <= 15 nm)', 'warning'))
 
         # EUV 13.5nm: NA > 0.55 is unusually high
-        if wl == 13.5 and na > 0.55:
+        if abs(wl - 13.5) < 0.1 and na > 0.55:
             errors.append(ValidationError('lithography.NA',
                 'EUV wavelength with NA > 0.55 is unusually high (typical EUV NA <= 0.33)',
                 'warning'))
@@ -105,7 +105,7 @@ class ConfigValidator:
         if model == 'dill':
             A = resist.get('A', 0.8)
             B = resist.get('B', 0.1)
-            C = resist.get('C', 0.01)
+            C = resist.get('C', 1.0)
             if A <= 0:
                 errors.append(ValidationError('resist.A',
                     'Dill A must be > 0', 'error'))
