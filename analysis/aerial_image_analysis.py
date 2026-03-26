@@ -223,13 +223,16 @@ class AerialImageAnalyzer:
         profile = profile_y if _count_crossings(profile_y) > _count_crossings(profile_x) else profile_x
         cd = self._cd_from_profile(profile, threshold)
 
-        # Warn when CD=0 despite meaningful contrast — threshold not crossed by
-        # any profile point, which means the threshold is above the image floor.
-        if cd == 0.0 and contrast > 0.1 and I_min > threshold:
+        # Warn when CD=0 despite meaningful contrast — the selected center-line
+        # profile never crosses the threshold (all values above threshold).
+        profile_min = float(np.min(profile))
+        if cd == 0.0 and contrast > 0.1 and profile_min > threshold:
             import warnings
             warnings.warn(
-                "CD=0: threshold {:.2f} is below image floor {:.3f}. "
-                "Increase threshold or reduce feature pitch/dose.".format(threshold, I_min),
+                "CD=0: center-line profile minimum ({:.3f}) is above threshold ({:.2f}). "
+                "Features exist but threshold is too low for this pattern; "
+                "consider raising cd_threshold or using a larger domain.".format(
+                    profile_min, threshold),
                 stacklevel=2,
             )
 
