@@ -317,8 +317,12 @@ class FDTDSimulator:
         if len(ix) == 0 or len(iy) == 0 or len(iz) == 0:
             return 0.0
 
-        # Sample Ez component
-        E_now = np.abs(g.Ez[ix[:, None, None], iy[None, :, None], iz[None, None, :]])
+        # Sample Ex component — dominant field for TE (E in x) excitation.
+        # Ez is near-zero in TE mode: sampling it causes pterr = 0 on the very
+        # first check and falsely marks the simulation as converged after only
+        # two periods of physical time.
+        # Ex has shape (nx, ny+1, nz+1); ix/iy/iz are within valid bounds.
+        E_now = np.abs(g.Ex[ix[:, None, None], iy[None, :, None], iz[None, None, :]])
 
         if not hasattr(self, '_E_prev'):
             self._E_prev = E_now.copy()
