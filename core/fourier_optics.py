@@ -152,6 +152,8 @@ class FourierOpticsEngine:
         self.domain_size_nm = config.get('domain_size_nm', 2000.0)
         self.use_vector = config.get('use_vector', False)
         self.polarization = config.get('polarization', 'unpolarized')
+        self.use_hopkins = config.get('use_hopkins', False)
+        self.n_kernels = config.get('n_kernels', 10)
 
         # Pixel size
         self.dx_nm = self.domain_size_nm / self.grid_size
@@ -194,6 +196,13 @@ class FourierOpticsEngine:
         if mask_transmission.shape != (N, N):
             raise ValueError(
                 "Mask must be {}x{}, got {}".format(N, N, mask_transmission.shape))
+
+        # Delegate to Hopkins TCC/SOCS engine when use_hopkins=True
+        if self.use_hopkins:
+            from .hopkins import HopkinsTCC
+            tcc = HopkinsTCC(self.config)
+            tcc.compute(source)
+            return tcc.aerial_image(mask_transmission)
 
         # Delegate to vector imaging engine when use_vector=True
         if self.use_vector:
