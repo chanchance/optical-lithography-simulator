@@ -244,6 +244,39 @@ class ParameterPanel(QWidget):
         self.gpu_cb.stateChanged.connect(self.params_changed)
         backend_form.addRow("GPU Acceleration:", self.gpu_cb)
 
+        self.hopkins_cb = QCheckBox()
+        self.hopkins_cb.setChecked(False)
+        self.hopkins_cb.setToolTip(
+            "Use Hopkins TCC (Transmission Cross-Coefficient) partial coherence decomposition"
+        )
+        self.hopkins_cb.stateChanged.connect(self._on_hopkins_toggled)
+        backend_form.addRow("Hopkins TCC:", self.hopkins_cb)
+
+        self.n_kernels_sb = QSpinBox()
+        self.n_kernels_sb.setRange(1, 50)
+        self.n_kernels_sb.setValue(10)
+        self.n_kernels_sb.setToolTip("Number of TCC eigenkernels (more = more accurate, slower)")
+        self.n_kernels_sb.setEnabled(False)
+        self.n_kernels_sb.valueChanged.connect(self.params_changed)
+        backend_form.addRow("TCC kernels:", self.n_kernels_sb)
+
+        self.vector_cb = QCheckBox()
+        self.vector_cb.setChecked(False)
+        self.vector_cb.setToolTip(
+            "Use vector imaging model (polarization-aware; slower but required for high-NA)"
+        )
+        self.vector_cb.stateChanged.connect(self._on_vector_toggled)
+        backend_form.addRow("Vector Imaging:", self.vector_cb)
+
+        self.polarization_combo = QComboBox()
+        self.polarization_combo.addItems(
+            ["Unpolarized", "X", "Y", "TE", "TM", "Circular L", "Circular R"]
+        )
+        self.polarization_combo.setToolTip("Polarization state of the illumination")
+        self.polarization_combo.setEnabled(False)
+        self.polarization_combo.currentTextChanged.connect(self.params_changed)
+        backend_form.addRow("Polarization:", self.polarization_combo)
+
         layout.addWidget(backend_group)
 
         # ---- Aberrations (Z1-Z37) — collapsible ----
@@ -591,6 +624,7 @@ class ParameterPanel(QWidget):
                 "quantum_efficiency": self.ca_qe_sb.value(),
                 "amplification": self.ca_amp_sb.value(),
                 "peb_sigma_nm": self.ca_peb_sb.value(),
+                "exposure_threshold": self.ca_exposure_threshold_sb.value(),
             }
         return {"model": "threshold", "threshold": self.resist_threshold_sb.value()}
 
@@ -646,6 +680,7 @@ class ParameterPanel(QWidget):
         self.ca_qe_sb.setValue(resist_cfg.get("quantum_efficiency", 0.5))
         self.ca_amp_sb.setValue(resist_cfg.get("amplification", 50.0))
         self.ca_peb_sb.setValue(resist_cfg.get("peb_sigma_nm", 25.0))
+        self.ca_exposure_threshold_sb.setValue(resist_cfg.get("exposure_threshold", 0.5))
 
         analysis_cfg = config.get("analysis", {})
         self.cd_threshold_sb.setValue(analysis_cfg.get("cd_threshold", 0.30))

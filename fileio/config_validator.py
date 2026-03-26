@@ -43,6 +43,12 @@ class ConfigValidator:
             errors.append(ValidationError('lithography.NA',
                 'NA > 0.33 is unusual for EUV (wavelength <= 15 nm)', 'warning'))
 
+        # EUV 13.5nm: NA > 0.55 is unusually high
+        if wl == 13.5 and na > 0.55:
+            errors.append(ValidationError('lithography.NA',
+                'EUV wavelength with NA > 0.55 is unusually high (typical EUV NA <= 0.33)',
+                'warning'))
+
         return errors
 
     def _validate_simulation(self, config: dict) -> List[ValidationError]:
