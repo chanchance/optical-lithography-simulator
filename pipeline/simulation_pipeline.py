@@ -3,6 +3,7 @@ End-to-end simulation pipeline for optical lithography simulator.
 Orchestrates: GDS load → mask creation → source setup → aerial image → analysis.
 """
 import os
+import warnings
 import numpy as np
 from typing import Optional, Callable, Dict, Any, List
 from dataclasses import dataclass, field
@@ -135,7 +136,10 @@ class SimulationPipeline:
                 mask_grid = layout_to_mask_grid(layout, N, domain_nm)
                 return mask_grid
             except Exception as e:
-                print("Warning: Could not read layout {}: {}".format(layout_path, e))
+                warnings.warn(
+                    "Could not read layout '{}': {}. "
+                    "Falling back to synthetic test pattern.".format(layout_path, e),
+                    stacklevel=2)
 
         # Default: line/space test pattern
         from core.mask_model import MaskFactory

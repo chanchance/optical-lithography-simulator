@@ -13,7 +13,8 @@ from gui.qt_compat import (
 from gui import theme
 
 import matplotlib
-matplotlib.use('Agg')
+# Do NOT call matplotlib.use('Agg') — it conflicts with the Qt backend
+# (backend_qtagg) already active in the main window.
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
@@ -29,6 +30,7 @@ class ResultsPanel(QWidget):
         super().__init__(parent)
         self._result = None
         self._pw_history: list = []
+        self._pw_nominal_cd: float = 0.0   # CD from first run (reference for band)
         # --- Gauge state ---
         self._gauges: list = []
         self._gauge_mode: bool = False
@@ -450,8 +452,10 @@ class ResultsPanel(QWidget):
         except Exception:
             defocus = result.metrics.get("defocus_nm", 0.0)
         self._pw_history.append((defocus, result.cd_nm))
-        if len(self._pw_history) > 5:
-            self._pw_history.pop(0)
+        # Store nominal CD from the first run as the stable reference for
+        # the +/-10% band — never shift the reference as history grows.
+        if self._pw_nominal_cd == 0.0 and result.cd_nm > 0:
+            self._pw_nominal_cd = result.cd_nm
 
         # ---- Aerial image ----
         self._redraw_aerial()
@@ -541,8 +545,8 @@ class ResultsPanel(QWidget):
             ax.plot(defocuses, cds, 'o-', color='#c0392b', linewidth=1.4,
                     markersize=5, markerfacecolor='white',
                     markeredgewidth=1.5, zorder=3)
-            if cds:
-                cd_nom = cds[0]
+            cd_nom = self._pw_nominal_cd if self._pw_nominal_cd > 0 else (cds[0] if cds else 0)
+            if cd_nom > 0:
                 band = cd_nom * 0.10
                 ax.axhspan(cd_nom - band, cd_nom + band,
                            alpha=0.12, color='green', label='+-10% CD band')
