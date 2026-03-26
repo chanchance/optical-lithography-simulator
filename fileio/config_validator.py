@@ -140,16 +140,19 @@ class ConfigValidator:
                 'sigma_outer must be in (0, 1]', 'error'))
 
         illum_type = illum.get('type', 'annular')
-        if illum_type == 'annular':
+        if illum_type in ('annular', 'dipole'):
             if sigma_inner >= sigma_outer:
                 errors.append(ValidationError('lithography.illumination.sigma_inner',
-                    'sigma_inner must be < sigma_outer for annular illumination', 'error'))
+                    'sigma_inner must be < sigma_outer for {} illumination'.format(illum_type),
+                    'error'))
             if sigma_inner < 0:
                 errors.append(ValidationError('lithography.illumination.sigma_inner',
                     'sigma_inner must be >= 0', 'error'))
 
         if illum_type == 'freeform':
-            pupil_size = illum.get('pupil_size', 0)
+            # Use the same default as create_source() (64) so that a freeform
+            # config without an explicit pupil_size is not incorrectly blocked.
+            pupil_size = illum.get('pupil_size', 64)
             if pupil_size <= 0:
                 errors.append(ValidationError('lithography.illumination.pupil_size',
                     'pupil_size must be > 0 for freeform illumination', 'error'))
