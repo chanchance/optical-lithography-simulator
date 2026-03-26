@@ -72,7 +72,7 @@ resist:
   # Dill A,B,C model params
   A: 0.8                      # Bleachable absorption [1/mJ/cm2]
   B: 0.1                      # Non-bleachable absorption [1/cm]
-  C: 0.01                     # Exposure rate constant [cm2/mJ]
+  C: 1.0                      # Normalized exposure rate (dose=1.0 → ~45% bleaching at I_max)
   peb_sigma_nm: 30.0          # PEB diffusion sigma (Dill / CA)
   # Chemically amplified (CA) model params
   quantum_efficiency: 0.5     # Acid generation per photon

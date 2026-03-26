@@ -40,7 +40,7 @@ class DillResist(BaseResist):
     """
     A: float = 0.8    # typical positive resist
     B: float = 0.1
-    C: float = 0.01
+    C: float = 1.0    # normalized exposure rate (dose=1.0 → ~45% bleaching at full intensity)
     peb_sigma_nm: float = 30.0  # PEB diffusion sigma
     domain_size_nm: float = 2000.0
 
