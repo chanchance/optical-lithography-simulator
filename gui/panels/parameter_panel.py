@@ -35,6 +35,10 @@ class ParameterPanel(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._applying_preset = False
+        # Illumination types not representable in the panel combo (dipole,
+        # freeform).  Set by load_config() when such a type arrives; cleared
+        # whenever the user touches any illumination control in the panel.
+        self._illum_override = None
         self._build_ui()
 
     # ------------------------------------------------------------------
@@ -546,6 +550,9 @@ class ParameterPanel(QWidget):
             self.preset_combo.blockSignals(True)
             self.preset_combo.setCurrentText("Custom")
             self.preset_combo.blockSignals(False)
+            # User is explicitly editing illumination params — drop any
+            # override from SourceDialog so the panel values take effect.
+            self._illum_override = None
             # Enforce sigma_inner < sigma_outer for annular-type sources
             if self.sigma_inner_sb.isEnabled():
                 if self.sigma_inner_sb.value() >= self.sigma_outer_sb.value():
@@ -561,6 +568,7 @@ class ParameterPanel(QWidget):
 
     def _on_illum_changed(self, text):
         self.sigma_inner_sb.setEnabled(text in ["Annular", "Quadrupole", "Quasar"])
+        self._illum_override = None  # user switched type — drop any saved override
         self.params_changed.emit()
 
     def _on_hopkins_toggled(self, state):
@@ -603,11 +611,15 @@ class ParameterPanel(QWidget):
                 "NA": self.na_sb.value(),
                 "defocus_nm": self.defocus_sb.value(),
                 "dose_factor": self.dose_factor_sb.value(),
-                "illumination": {
-                    "type": illum_map[self.illum_combo.currentText()],
-                    "sigma_outer": self.sigma_outer_sb.value(),
-                    "sigma_inner": self.sigma_inner_sb.value(),
-                },
+                "illumination": (
+                    self._illum_override
+                    if self._illum_override is not None
+                    else {
+                        "type": illum_map[self.illum_combo.currentText()],
+                        "sigma_outer": self.sigma_outer_sb.value(),
+                        "sigma_inner": self.sigma_inner_sb.value(),
+                    }
+                ),
                 "mask_type": mask_map[self.mask_combo.currentText()],
                 "aberrations": {
                     "zernike": [sb.value() for sb in self.zernike_sbs],
@@ -672,9 +684,16 @@ class ParameterPanel(QWidget):
             self.dose_factor_sb.setValue(litho.get("dose_factor", 1.0))
             self.sigma_outer_sb.setValue(illum.get("sigma_outer", 0.85))
             self.sigma_inner_sb.setValue(illum.get("sigma_inner", 0.55))
-            self.illum_combo.setCurrentText(
-                illum_rmap.get(illum.get("type", "annular"), "Annular")
-            )
+            illum_type = illum.get("type", "annular")
+            if illum_type in illum_rmap:
+                # Known type — display it in the combo and clear any override.
+                self._illum_override = None
+                self.illum_combo.setCurrentText(illum_rmap[illum_type])
+            else:
+                # Unsupported type (e.g. "dipole", "freeform") — store the full
+                # config so get_config() can return it intact.  Leave the combo
+                # unchanged so the panel doesn't show a misleading type.
+                self._illum_override = dict(illum)
             self.mask_combo.setCurrentText(
                 mask_rmap.get(litho.get("mask_type", "binary"), "Binary")
             )
