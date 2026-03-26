@@ -94,4 +94,6 @@ class BatchRunner:
             writer.writeheader()
             writer.writerows(results)
 
-        print("Saved {} results to {}".format(len(results), csv_path))
+        import logging
+        logging.getLogger(__name__).info(
+            "Saved %d results to %s", len(results), csv_path)

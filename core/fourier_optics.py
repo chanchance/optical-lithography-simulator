@@ -188,6 +188,11 @@ class FourierOpticsEngine:
         source_points = source.get_source_points()
         NA_freq = self.NA / self.wavelength_nm  # NA in cycles/nm
 
+        # Pre-compute spatial coordinate grids (constant across source points)
+        x_1d = np.arange(N) * self.dx_nm
+        y_1d = np.arange(N) * self.dx_nm
+        X, Y = np.meshgrid(x_1d, y_1d, indexing='ij')
+
         for sp in source_points:
             # Source plane wave direction: (ks_x, ks_y) in cycles/nm
             ks_x = sp.kx * NA_freq
@@ -196,10 +201,6 @@ class FourierOpticsEngine:
             # Shift mask spectrum for oblique illumination
             # M_shifted(fx,fy) = M(fx+ks_x, fy+ks_y)
             # Implement as phase ramp in spatial domain (shift theorem)
-            x_1d = np.arange(N) * self.dx_nm
-            y_1d = np.arange(N) * self.dx_nm
-            X, Y = np.meshgrid(x_1d, y_1d, indexing='ij')
-
             phase_ramp = np.exp(1j * 2.0 * np.pi * (ks_x * X + ks_y * Y))
             t_shifted = mask_transmission * phase_ramp
             M_shifted = np.fft.fft2(t_shifted)
