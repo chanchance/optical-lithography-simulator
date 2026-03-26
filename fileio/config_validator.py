@@ -56,9 +56,9 @@ class ConfigValidator:
         sim = config.get('simulation', {})
 
         grid_size = sim.get('grid_size', 256)
-        if not (64 <= grid_size <= 2048):
+        if not (16 <= grid_size <= 4096):
             errors.append(ValidationError('simulation.grid_size',
-                'grid_size must be in [64, 2048]', 'error'))
+                'grid_size must be in [16, 4096]', 'error'))
         elif (grid_size & (grid_size - 1)) != 0:
             errors.append(ValidationError('simulation.grid_size',
                 'grid_size should be a power of 2 for FFT efficiency', 'warning'))
