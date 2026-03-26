@@ -406,8 +406,10 @@ class MaskGridGenerator:
         try:
             from matplotlib.path import Path
             path = Path(poly_grid)
-            xi = np.arange(N)
-            yi = np.arange(N)
+            # Sample at pixel centers (+0.5) rather than corners to get
+            # correct pixel-coverage rasterization (standard definition).
+            xi = np.arange(N) + 0.5
+            yi = np.arange(N) + 0.5
             XI, YI = np.meshgrid(xi, yi, indexing='ij')
             pts = np.column_stack([XI.ravel(), YI.ravel()])
             mask = path.contains_points(pts).reshape(N, N)

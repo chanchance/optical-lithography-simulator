@@ -144,7 +144,9 @@ class ThinScalarMask:
             from matplotlib.path import Path
             path = Path(np.column_stack([ix, iy]))
 
-            yi_arr, xi_arr = np.meshgrid(np.arange(N), np.arange(N), indexing='ij')
+            # Sample at pixel centers (+0.5) rather than corners for correct
+            # pixel-coverage rasterization (standard definition).
+            yi_arr, xi_arr = np.meshgrid(np.arange(N) + 0.5, np.arange(N) + 0.5, indexing='ij')
             points = np.column_stack([xi_arr.ravel(), yi_arr.ravel()])
             mask = path.contains_points(points).reshape(N, N)
             return mask
