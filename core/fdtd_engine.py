@@ -132,6 +132,10 @@ class FDTDSimulator:
         """Initialize the simulation grid."""
         self.grid = YeeGrid(nx, ny, nz, self.dx, self.dy, self.dz)
         self._precompute_update_coefficients()
+        # Reset per-run state so repeated calls don't carry over stale data
+        self._convergence_history = []
+        if hasattr(self, '_E_prev'):
+            del self._E_prev
 
     def _precompute_update_coefficients(self) -> None:
         """
