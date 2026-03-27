@@ -32,6 +32,7 @@ class ParameterPanel(QWidget):
 
     params_changed = Signal()
     source_preview_requested = Signal()
+    layout_center_requested = Signal()   # ask main window to fill center from layout bbox
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -316,6 +317,36 @@ class ParameterPanel(QWidget):
         self.domain_sb.setToolTip("Physical size of the simulation domain")
         self.domain_sb.valueChanged.connect(self.params_changed)
         mask_form.addRow("Domain size:", self.domain_sb)
+
+        # Domain center (for clipping GDS layouts)
+        center_row = QHBoxLayout()
+        center_row.setSpacing(4)
+        self.center_x_sb = QDoubleSpinBox()
+        self.center_x_sb.setRange(-999999.0, 999999.0)
+        self.center_x_sb.setValue(0.0)
+        self.center_x_sb.setSuffix(" nm")
+        self.center_x_sb.setDecimals(1)
+        self.center_x_sb.setToolTip("X coordinate of simulation domain center (nm)")
+        self.center_x_sb.valueChanged.connect(self.params_changed)
+        self.center_y_sb = QDoubleSpinBox()
+        self.center_y_sb.setRange(-999999.0, 999999.0)
+        self.center_y_sb.setValue(0.0)
+        self.center_y_sb.setSuffix(" nm")
+        self.center_y_sb.setDecimals(1)
+        self.center_y_sb.setToolTip("Y coordinate of simulation domain center (nm)")
+        self.center_y_sb.valueChanged.connect(self.params_changed)
+        center_row.addWidget(QLabel("X:"))
+        center_row.addWidget(self.center_x_sb)
+        center_row.addWidget(QLabel("Y:"))
+        center_row.addWidget(self.center_y_sb)
+        self.from_layout_btn = QPushButton("From Layout")
+        self.from_layout_btn.setObjectName("secondary")
+        self.from_layout_btn.setToolTip("Set center to loaded layout bounding-box center")
+        self.from_layout_btn.clicked.connect(self.layout_center_requested)
+        center_row.addWidget(self.from_layout_btn)
+        center_widget = QWidget()
+        center_widget.setLayout(center_row)
+        mask_form.addRow("Center:", center_widget)
 
         layout.addWidget(mask_group)
 
@@ -700,6 +731,16 @@ class ParameterPanel(QWidget):
         """Return the selected polarization mode."""
         return self.polarization_combo.currentText()
 
+    def set_layout_center(self, cx: float, cy: float):
+        """Set the domain center spinboxes to the given coordinates (nm)."""
+        self.center_x_sb.blockSignals(True)
+        self.center_y_sb.blockSignals(True)
+        self.center_x_sb.setValue(cx)
+        self.center_y_sb.setValue(cy)
+        self.center_x_sb.blockSignals(False)
+        self.center_y_sb.blockSignals(False)
+        self.params_changed.emit()
+
     def get_config(self):
         illum_map = {
             "Circular": "circular", "Annular": "annular",
@@ -745,6 +786,7 @@ class ParameterPanel(QWidget):
             "simulation": {
                 "grid_size": int(self.grid_combo.currentText()),
                 "domain_size_nm": self.domain_sb.value(),
+                "center_nm": [self.center_x_sb.value(), self.center_y_sb.value()],
                 "use_gpu": self.gpu_cb.isChecked(),
             },
             "rcwa": {
@@ -830,6 +872,9 @@ class ParameterPanel(QWidget):
 
         self.grid_combo.setCurrentText(str(sim.get("grid_size", 256)))
         self.domain_sb.setValue(sim.get("domain_size_nm", 2000.0))
+        center = sim.get("center_nm", [0.0, 0.0])
+        self.center_x_sb.setValue(float(center[0]) if center else 0.0)
+        self.center_y_sb.setValue(float(center[1]) if center else 0.0)
         if self.gpu_cb.isEnabled():
             self.gpu_cb.setChecked(sim.get("use_gpu", False))
 

@@ -19,6 +19,7 @@ import matplotlib
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
+from matplotlib.patches import Rectangle
 
 _SIM_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _COLORS = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7']
@@ -107,6 +108,13 @@ class LayoutPanel(QWidget):
         self._bbox = None          # BoundingBox from LayoutData
         self._layer_info = {}      # layer_num -> LayerInfo
         self._loader_thread = None
+        self._clip_center_nm = None    # (cx, cy) tuple or None
+        self._clip_domain_nm = 2000.0
+        self._ruler_mode = False
+        self._ruler_p1 = None
+        self._ruler_line = None
+        self._ruler_ann = None
+        self._zoom_step = 0.25         # zoom 25% per click
         self._build_ui()
 
     def _build_ui(self):
@@ -129,6 +137,24 @@ class LayoutPanel(QWidget):
         self.fit_btn.clicked.connect(self._draw)
         tb.addWidget(self.open_btn)
         tb.addWidget(self.fit_btn)
+        self.zoom_in_btn = QPushButton("＋")
+        self.zoom_in_btn.setObjectName("secondary")
+        self.zoom_in_btn.setFixedWidth(32)
+        self.zoom_in_btn.setToolTip("Zoom in")
+        self.zoom_in_btn.clicked.connect(self._zoom_in)
+        self.zoom_out_btn = QPushButton("－")
+        self.zoom_out_btn.setObjectName("secondary")
+        self.zoom_out_btn.setFixedWidth(32)
+        self.zoom_out_btn.setToolTip("Zoom out")
+        self.zoom_out_btn.clicked.connect(self._zoom_out)
+        self.ruler_btn = QPushButton("Ruler")
+        self.ruler_btn.setObjectName("secondary")
+        self.ruler_btn.setCheckable(True)
+        self.ruler_btn.setToolTip("Click two points to measure distance")
+        self.ruler_btn.toggled.connect(self._on_ruler_toggled)
+        tb.addWidget(self.zoom_in_btn)
+        tb.addWidget(self.zoom_out_btn)
+        tb.addWidget(self.ruler_btn)
         tb.setSpacing(8)
         tb.setContentsMargins(8, 6, 8, 6)
         tb.addStretch()
@@ -168,6 +194,8 @@ class LayoutPanel(QWidget):
         self.figure.patch.set_facecolor(theme.BG_PRIMARY)
         self.canvas = FigureCanvas(self.figure)
         self.canvas.mpl_connect('motion_notify_event', self._on_mouse_move)
+        self.canvas.mpl_connect('scroll_event', self._on_scroll)
+        self.canvas.mpl_connect('button_press_event', self._on_canvas_click)
         canvas_layout.addWidget(self.canvas)
 
         # Loading overlay as child of canvas container
@@ -258,6 +286,120 @@ class LayoutPanel(QWidget):
         self._layer_visible[item.data(Qt.UserRole)] = (item.checkState() == Qt.Checked)
         self._draw()
 
+    # ------------------------------------------------------------------
+    # Zoom helpers
+    # ------------------------------------------------------------------
+
+    def _zoom_in(self):
+        self._apply_zoom(1.0 - self._zoom_step)
+
+    def _zoom_out(self):
+        self._apply_zoom(1.0 + self._zoom_step)
+
+    def _apply_zoom(self, factor: float):
+        xl = self.ax.get_xlim()
+        yl = self.ax.get_ylim()
+        cx = (xl[0] + xl[1]) * 0.5
+        cy = (yl[0] + yl[1]) * 0.5
+        hw = (xl[1] - xl[0]) * 0.5 * factor
+        hh = (yl[1] - yl[0]) * 0.5 * factor
+        self.ax.set_xlim(cx - hw, cx + hw)
+        self.ax.set_ylim(cy - hh, cy + hh)
+        self.canvas.draw_idle()
+
+    def _on_scroll(self, event):
+        if event.inaxes is not self.ax:
+            return
+        factor = 1.0 - self._zoom_step if event.button == 'up' else 1.0 + self._zoom_step
+        # Zoom toward cursor position
+        xl = self.ax.get_xlim()
+        yl = self.ax.get_ylim()
+        xdata, ydata = event.xdata, event.ydata
+        new_xl = [xdata + (x - xdata) * factor for x in xl]
+        new_yl = [ydata + (y - ydata) * factor for y in yl]
+        self.ax.set_xlim(new_xl)
+        self.ax.set_ylim(new_yl)
+        self.canvas.draw_idle()
+
+    # ------------------------------------------------------------------
+    # Ruler
+    # ------------------------------------------------------------------
+
+    def _on_ruler_toggled(self, checked: bool):
+        self._ruler_mode = checked
+        if not checked:
+            self._ruler_p1 = None
+            self._clear_ruler_overlay()
+            self.canvas.draw_idle()
+
+    def _clear_ruler_overlay(self):
+        if self._ruler_line is not None:
+            try:
+                self._ruler_line.remove()
+            except Exception:
+                pass
+            self._ruler_line = None
+        if self._ruler_ann is not None:
+            try:
+                self._ruler_ann.remove()
+            except Exception:
+                pass
+            self._ruler_ann = None
+
+    def _on_canvas_click(self, event):
+        if not self._ruler_mode or event.inaxes is not self.ax:
+            return
+        x, y = event.xdata, event.ydata
+        if self._ruler_p1 is None:
+            self._ruler_p1 = (x, y)
+        else:
+            x1, y1 = self._ruler_p1
+            dist = np.hypot(x - x1, y - y1)
+            self._clear_ruler_overlay()
+            self._ruler_line, = self.ax.plot(
+                [x1, x], [y1, y], color='#FFD600', linewidth=1.5,
+                linestyle='--', zorder=10)
+            mx, my = (x1 + x) * 0.5, (y1 + y) * 0.5
+            self._ruler_ann = self.ax.annotate(
+                '{:.1f} nm'.format(dist),
+                xy=(mx, my), fontsize=9,
+                color='#FFD600', fontweight='bold',
+                ha='center', va='bottom', zorder=11,
+                bbox=dict(boxstyle='round,pad=0.2', fc='#191F28', ec='none', alpha=0.7),
+            )
+            self.canvas.draw_idle()
+            self._ruler_p1 = None  # reset for next measurement
+
+    # ------------------------------------------------------------------
+    # Clip region overlay
+    # ------------------------------------------------------------------
+
+    def set_clip_region(self, center_nm, domain_size_nm: float):
+        """Update the clip-region rectangle drawn on the layout canvas.
+        center_nm: (cx, cy) in nm, or None to hide.
+        domain_size_nm: side length of the simulation domain.
+        """
+        self._clip_center_nm = center_nm
+        self._clip_domain_nm = domain_size_nm
+        self._redraw_clip_overlay()
+        self.canvas.draw_idle()
+
+    def _redraw_clip_overlay(self):
+        # Remove existing clip patch (tagged by gid)
+        for patch in list(self.ax.patches):
+            if getattr(patch, '_omc_clip', False):
+                patch.remove()
+        if self._clip_center_nm is None:
+            return
+        cx, cy = self._clip_center_nm
+        half = self._clip_domain_nm * 0.5
+        rect = Rectangle(
+            (cx - half, cy - half), self._clip_domain_nm, self._clip_domain_nm,
+            linewidth=1.5, edgecolor='#3182F6', facecolor='#3182F6',
+            alpha=0.08, linestyle='--', zorder=5)
+        rect._omc_clip = True
+        self.ax.add_patch(rect)
+
     def _draw(self):
         self.ax.clear()
         self.ax.set_aspect('equal')
@@ -301,6 +443,7 @@ class LayoutPanel(QWidget):
             self.ax.set_xlim(-1000, 1000)
             self.ax.set_ylim(-1000, 1000)
 
+        self._redraw_clip_overlay()
         self.figure.tight_layout()
         self.canvas.draw()
 
@@ -311,3 +454,7 @@ class LayoutPanel(QWidget):
 
     def get_layout_path(self):
         return self._layout_path
+
+    def get_bounding_box(self):
+        """Return the loaded layout bounding box, or None."""
+        return self._bbox

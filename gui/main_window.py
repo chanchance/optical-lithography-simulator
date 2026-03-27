@@ -202,8 +202,10 @@ class MainWindow(QMainWindow):
         self._workflow_bar.step_clicked.connect(self.tabs.setCurrentIndex)
         self.analysis_panel.navigate_requested.connect(self.tabs.setCurrentIndex)
         self.param_panel.source_preview_requested.connect(self._show_source_dialog)
+        self.param_panel.layout_center_requested.connect(self._on_layout_center_requested)
         self._results_stale = False
         self.param_panel.params_changed.connect(self._mark_stale)
+        self.param_panel.params_changed.connect(self._update_clip_overlay)
 
     def _on_layout_loaded(self, path):
         basename = os.path.basename(path)
@@ -213,6 +215,26 @@ class MainWindow(QMainWindow):
             self.layout_label.setText(basename)
         # Hint user to move to Parameters next
         self._workflow_bar.set_current(1)
+        self._update_clip_overlay()
+
+    def _on_layout_center_requested(self):
+        """Fill param panel center spinboxes with the loaded layout bbox center."""
+        bbox = self.layout_panel.get_bounding_box()
+        if bbox is None:
+            return
+        cx, cy = bbox.center
+        self.param_panel.set_layout_center(cx, cy)
+
+    def _update_clip_overlay(self):
+        """Push current center / domain config to the layout panel clip overlay."""
+        cfg = self.param_panel.get_config().get('simulation', {})
+        center = cfg.get('center_nm', [0.0, 0.0])
+        domain = cfg.get('domain_size_nm', 2000.0)
+        # Only show overlay when a layout is loaded
+        if self.layout_panel.get_layout_path() is None:
+            self.layout_panel.set_clip_region(None, domain)
+        else:
+            self.layout_panel.set_clip_region((center[0], center[1]), domain)
 
     def _build_menu(self):
         mb = self.menuBar()

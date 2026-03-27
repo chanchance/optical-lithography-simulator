@@ -199,7 +199,9 @@ class SimulationPipeline:
             try:
                 from fileio.layout_io import read_layout, layout_to_mask_grid
                 layout = read_layout(layout_path)
-                mask_grid = layout_to_mask_grid(layout, N, domain_nm)
+                center_cfg = sim_cfg.get('center_nm')
+                center_nm = (float(center_cfg[0]), float(center_cfg[1])) if center_cfg else None
+                mask_grid = layout_to_mask_grid(layout, N, domain_nm, center_nm=center_nm)
             except Exception as e:
                 warnings.warn(
                     "Could not read layout '{}': {}. "

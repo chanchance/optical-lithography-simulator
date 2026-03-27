@@ -410,7 +410,7 @@ class MaskGridGenerator:
             # correct pixel-coverage rasterization (standard definition).
             xi = np.arange(N) + 0.5
             yi = np.arange(N) + 0.5
-            XI, YI = np.meshgrid(xi, yi, indexing='ij')
+            XI, YI = np.meshgrid(xi, yi, indexing='xy')
             pts = np.column_stack([XI.ravel(), YI.ravel()])
             mask = path.contains_points(pts).reshape(N, N)
             return mask
@@ -421,7 +421,7 @@ class MaskGridGenerator:
             ymin = max(0, int(np.min(poly_grid[:, 1])))
             ymax = min(N-1, int(np.max(poly_grid[:, 1])))
             mask = np.zeros((N, N), dtype=bool)
-            mask[xmin:xmax+1, ymin:ymax+1] = True
+            mask[ymin:ymax+1, xmin:xmax+1] = True
             return mask
 
     def get_simulation_domain(self, layout: 'LayoutData',
