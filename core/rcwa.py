@@ -83,21 +83,22 @@ class RCWAEngine:
         wavelength_nm, n_orders: optional per-call overrides (do not persist)
         Returns: complex 1D near-field amplitude (same size as mask_profile)
         """
-        # Apply overrides without permanently mutating self.params.
-        # Directly mutating self.params was a bug: subsequent calls would use
-        # the overridden values instead of the engine's configured defaults.
-        orig_wl = self.params.wavelength_nm
-        orig_n = self.params.n_orders
-        try:
-            if wavelength_nm is not None:
-                self.params.wavelength_nm = wavelength_nm
-            if n_orders is not None:
-                self.params.n_orders = n_orders
+        # Apply per-call overrides by passing a temporary params copy so that
+        # self.params is never mutated. The previous try/finally approach still
+        # mutated self.params during the call, making it thread-unsafe.
+        from copy import copy as _copy
+        p = _copy(self.params)
+        if wavelength_nm is not None:
+            p.wavelength_nm = wavelength_nm
+        if n_orders is not None:
+            p.n_orders = n_orders
 
+        orig_params = self.params
+        self.params = p
+        try:
             result = self.compute_diffraction_orders(mask_profile, pitch_nm)
         finally:
-            self.params.wavelength_nm = orig_wl
-            self.params.n_orders = orig_n
+            self.params = orig_params
 
         orders = result['orders']
         amplitudes = result['amplitude']

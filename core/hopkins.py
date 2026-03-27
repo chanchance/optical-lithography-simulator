@@ -171,6 +171,6 @@ class HopkinsTCC:
             return 0.0
         if not hasattr(self, '_all_eigenvalues'):
             return 1.0
-        kept_energy = float(np.sum(self.eigenvalues**2))
-        total_energy = float(np.sum(self._all_eigenvalues**2))
+        kept_energy = float(np.sum(self.eigenvalues))
+        total_energy = float(np.sum(self._all_eigenvalues))
         return kept_energy / total_energy if total_energy > 0 else 1.0

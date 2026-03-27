@@ -86,7 +86,8 @@ class EUVMultilayerMask:
         1 = open (multilayer) region (peak reflectance ~70%)
         """
         R_peak = self.multilayer_reflectance()
-        # Absorber transmission (two-pass): approximately exp(-4*pi*k*t/lambda)
+        # Single-pass intensity attenuation: exp(-4*pi*k*t/lambda).
+        # T_abs**2 is the round-trip (two-pass) intensity factor applied to reflectance.
         k_abs = TAN_K
         T_abs = np.exp(-4 * np.pi * k_abs * self.absorber_thickness_nm / self.wavelength_nm)
         R_absorber = R_peak * T_abs**2
