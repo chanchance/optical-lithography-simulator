@@ -283,7 +283,7 @@ class LERResult:
     ler_3sigma_nm: float    # LER (3-sigma), line edge roughness
     lwr_3sigma_nm: float    # LWR (3-sigma), line width roughness
     psd: np.ndarray         # Power Spectral Density
-    frequencies: np.ndarray # Spatial frequencies [1/nm]
+    frequencies: np.ndarray # Spatial frequencies [cycles/sample]; divide by pitch_nm to get [1/nm]
 
 
 class LERAnalysis:
