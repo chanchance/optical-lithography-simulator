@@ -361,8 +361,10 @@ class TransferMatrixEngine:
         intensity = np.zeros(len(z_positions), dtype=float)
         for iz, z in enumerate(z_positions):
             # Find which film layer z falls in (layers[1..N-2])
-            layer_idx = N - 2  # default: deepest film / substrate
-            z_in_layer = z - boundaries[-1]
+            # Default: deepest film layer.  Measure z_in_layer from its TOP
+            # boundary (boundaries[-2]), not from the stack bottom (boundaries[-1]).
+            layer_idx = N - 2
+            z_in_layer = z - (boundaries[-2] if len(boundaries) >= 2 else boundaries[0])
             for li in range(len(boundaries) - 1):
                 if boundaries[li] <= z < boundaries[li + 1]:
                     layer_idx = li + 1   # film index in full layers list

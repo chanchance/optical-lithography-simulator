@@ -374,7 +374,9 @@ class FreeformSource(BaseSource):
         Example: "np.exp(-r**2 / 0.1)" or "(r > 0.3) & (r < 0.7)"
         """
         s = np.linspace(-1, 1, pupil_size)
-        x, y = np.meshgrid(s, s)
+        # Use indexing='ij' so self._map[i,j] corresponds to (x=s[i], y=s[j]),
+        # matching the KX[i,j]=lin[i], KY[i,j]=lin[j] convention in _compute_points.
+        x, y = np.meshgrid(s, s, indexing='ij')
         r = np.sqrt(x**2 + y**2)
         # Safe eval with restricted namespace
         ns = {'np': np, 'x': x, 'y': y, 'r': r,
@@ -393,7 +395,9 @@ class FreeformSource(BaseSource):
         """
         N = self.pupil_size
         s = np.linspace(-self._sigma_max, self._sigma_max, N)
-        sx, sy = np.meshgrid(s, s)
+        # Use indexing='ij' to match from_expression / _compute_points convention:
+        # sx[i,j]=s[i] → kx, sy[i,j]=s[j] → ky, self._map[i,j] is weight at (kx,ky).
+        sx, sy = np.meshgrid(s, s, indexing='ij')
 
         # Flatten and threshold
         flat_weights = self._map.ravel()
