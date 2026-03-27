@@ -151,11 +151,11 @@ class ThinScalarMask:
             mask = path.contains_points(points).reshape(N, N)
             return mask
         except Exception:
-            # Fallback: bounding box fill
+            # Fallback: bounding box fill — mask[row=y, col=x] convention
             xmin, xmax = int(np.min(ix)), int(np.max(ix))
             ymin, ymax = int(np.min(iy)), int(np.max(iy))
             mask = np.zeros((N, N), dtype=bool)
-            mask[xmin:xmax+1, ymin:ymax+1] = True
+            mask[ymin:ymax+1, xmin:xmax+1] = True
             return mask
 
     def get_diffraction_orders(self, n_orders: int = 10) -> Dict[Tuple[int,int], complex]:

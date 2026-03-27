@@ -235,7 +235,11 @@ class SimulationPipeline:
         if abs(float(litho_cfg.get('wavelength_nm', 193.0)) - 13.5) < 0.5:
             from core.euv_mask import EUVMultilayerMask
             euv_mask = EUVMultilayerMask()
-            mask_grid = euv_mask.apply_to_mask(mask_grid)
+            # apply_to_mask() expects a real binary [0,1] grid; PSM transforms
+            # may have produced a complex array — binarise first so the returned
+            # reflectance map is real-valued.
+            binary_for_euv = (np.abs(mask_grid) > 0.5).astype(np.float64)
+            mask_grid = euv_mask.apply_to_mask(binary_for_euv)
             # Note: EUV flare is NOT applied here. Flare is scattered light in
             # the optical path, so it must be added to the aerial image after
             # simulation (in run()), not to the mask transmission beforehand.
