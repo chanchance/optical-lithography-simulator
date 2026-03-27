@@ -57,7 +57,7 @@ class FieldViewer:
         im = ax.imshow(data.T, origin='lower', cmap=cmap,
                         extent=extent_nm, vmin=-vmax, vmax=vmax,
                         interpolation='bilinear')
-        plt.colorbar(im, ax=ax, label='{} (V/m)'.format(component))
+        ax.get_figure().colorbar(im, ax=ax, label='{} (V/m)'.format(component))
         ax.set_xlabel('X (nm)')
         ax.set_ylabel('Y (nm)')
         ax.set_title('Field Component: {}'.format(component))
@@ -104,7 +104,7 @@ class FieldViewer:
         im = ax.imshow(intensity.T, origin='lower', cmap='hot',
                         extent=extent_nm, vmin=0,
                         interpolation='bilinear')
-        plt.colorbar(im, ax=ax, label='|E|² (V²/m²)')
+        ax.get_figure().colorbar(im, ax=ax, label='|E|² (V²/m²)')
         ax.set_xlabel('X (nm)')
         ax.set_ylabel('Y (nm)')
         ax.set_title('EM Field Intensity |E|²')
@@ -143,7 +143,7 @@ class FieldViewer:
 
         im = ax.imshow(field_history[0].T, origin='lower', cmap='RdBu',
                         vmin=-vmax, vmax=vmax, animated=True)
-        plt.colorbar(im, ax=ax)
+        fig.colorbar(im, ax=ax)
         title = ax.set_title('t=0')
 
         def update(frame):
