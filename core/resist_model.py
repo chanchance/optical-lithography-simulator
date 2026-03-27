@@ -98,9 +98,10 @@ class CAResist(BaseResist):
         # a systematic ~5% shift in the CD boundary.
         deprotection = 1.0 / (1.0 + np.exp(-self.amplification * (acid_diffused - self.exposure_threshold)))
         t = threshold if threshold is not None else 0.5
-        # High deprotection (→1) = well-exposed; matches ThresholdResist / DillResist
-        # convention where 1.0 = cleared feature, 0.0 = unexposed.
-        return (deprotection >= t).astype(float)
+        # deprotection→1 where well-exposed; remaining resist is where deprotection is BELOW
+        # threshold (unexposed side), matching ThresholdResist (latent<t) and DillResist
+        # (M_peb>t, PAC intact) which all return 1.0 for unexposed (resist-remains) regions.
+        return (deprotection < t).astype(float)
 
 
 @dataclass
