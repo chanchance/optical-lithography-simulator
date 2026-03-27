@@ -218,14 +218,26 @@ class FourierOpticsEngine:
         # Select compute backend (NumPy or CuPy)
         if self.use_gpu:
             from .gpu_backend import to_gpu, to_cpu, fft2 as _fft2, ifft2 as _ifft2
+            try:
+                import cupy as _xp
+            except ImportError:
+                _xp = np
         else:
             to_gpu = lambda a: a  # noqa: E731
             to_cpu = lambda a: a  # noqa: E731
             _fft2 = np.fft.fft2
             _ifft2 = np.fft.ifft2
+            _xp = np
 
-        # Transfer static arrays to device
-        mask_gpu = to_gpu(mask_transmission)
+        # Pre-compute mask FFT once and pupil.
+        # Phase-ramp approach [FFT{mask·exp(-j2π·ks·x)}] is only exact when
+        # ks·N·dx is an integer.  Non-grid-aligned source points cause Gibbs
+        # ringing: a clear mask yields I ∈ [0.33, 1.09] instead of 1.0
+        # everywhere.  Shifting the pre-computed spectrum by the nearest integer
+        # bin via np.roll eliminates this entirely — clear-mask intensity becomes
+        # exactly 1.0 for every source angle.  Rounding error ≤ ½ pixel is
+        # well below the diffraction limit (λ/2NA ≈ 100 nm at ArF/NA=0.93).
+        M_gpu = _fft2(to_gpu(mask_transmission.astype(complex)))
         P_np = self.projection_optic.pupil_function(self.FX, self.FY, self.defocus_nm)
         P_gpu = to_gpu(P_np)
 
@@ -235,23 +247,13 @@ class FourierOpticsEngine:
         source_points = source.get_source_points()
         NA_freq = self.NA / self.wavelength_nm  # NA in cycles/nm
 
-        # Pre-compute spatial coordinate grids (constant across source points)
-        x_1d = np.arange(N) * self.dx_nm
-        y_1d = np.arange(N) * self.dx_nm
-        X_np, Y_np = np.meshgrid(x_1d, y_1d, indexing='ij')
-
         for sp in source_points:
-            # Source plane wave direction: (ks_x, ks_y) in cycles/nm
-            ks_x = sp.kx * NA_freq
-            ks_y = sp.ky * NA_freq
-
-            # Shift mask spectrum for oblique illumination
-            # M_shifted(fx,fy) = M(fx+ks_x, fy+ks_y)
-            # Shift theorem: FFT{m(x,y) * exp(-j2π(ksx*x+ksy*y))} = M(fx+ksx, fy+ksy)
-            # Note: sign is negative (not positive) — positive sign gives M(fx-ksx, fy-ksy)
-            phase_ramp = np.exp(-1j * 2.0 * np.pi * (ks_x * X_np + ks_y * Y_np))
-            phase_gpu = to_gpu(phase_ramp)
-            M_shifted = _fft2(mask_gpu * phase_gpu)
+            # Map source k-vector to nearest FFT frequency bin.
+            # bin = round(ks × domain_nm) = round(ks × N × dx)
+            # M_shifted[k,l] = M[(k + bin_x) % N, (l + bin_y) % N]
+            bin_x = int(round(sp.kx * NA_freq * self.domain_size_nm))
+            bin_y = int(round(sp.ky * NA_freq * self.domain_size_nm))
+            M_shifted = _xp.roll(M_gpu, (-bin_x, -bin_y), axis=(0, 1))
 
             # Apply pupil function and IFFT
             E_image = _ifft2(M_shifted * P_gpu)
