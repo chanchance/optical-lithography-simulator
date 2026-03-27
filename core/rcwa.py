@@ -43,12 +43,13 @@ class RCWAEngine:
         mask_profile: np.ndarray,  # 1D binary mask transmission (0 or 1)
         pitch_nm: float,           # grating pitch in nm
         angle_deg: float = 0.0,    # illumination angle
+        _params: 'RCWAParams' = None,  # internal: per-call params override (no self.params mutation)
     ) -> dict:
         """
         Compute diffraction efficiencies for each order.
         Returns: {'orders': array of order indices, 'efficiency': array, 'amplitude': complex array}
         """
-        params = self.params
+        params = _params if _params is not None else self.params
         k0 = 2 * np.pi / params.wavelength_nm  # noqa: F841 (kept for future S-matrix use)
 
         # For thin-mask approximation (simplified but correct for binary masks):
@@ -83,9 +84,8 @@ class RCWAEngine:
         wavelength_nm, n_orders: optional per-call overrides (do not persist)
         Returns: complex 1D near-field amplitude (same size as mask_profile)
         """
-        # Apply per-call overrides by passing a temporary params copy so that
-        # self.params is never mutated. The previous try/finally approach still
-        # mutated self.params during the call, making it thread-unsafe.
+        # Apply per-call overrides via a params copy passed to compute_diffraction_orders.
+        # self.params is never mutated — fully thread-safe.
         from copy import copy as _copy
         p = _copy(self.params)
         if wavelength_nm is not None:
@@ -93,12 +93,8 @@ class RCWAEngine:
         if n_orders is not None:
             p.n_orders = n_orders
 
-        orig_params = self.params
-        self.params = p
-        try:
-            result = self.compute_diffraction_orders(mask_profile, pitch_nm)
-        finally:
-            self.params = orig_params
+        # Pass overridden params directly — no self.params mutation, fully thread-safe.
+        result = self.compute_diffraction_orders(mask_profile, pitch_nm, _params=p)
 
         orders = result['orders']
         amplitudes = result['amplitude']
