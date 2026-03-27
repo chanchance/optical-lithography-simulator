@@ -342,7 +342,9 @@ class TransferMatrixEngine:
                 t_prev = stack.layers[i - 1].thickness_nm
                 if t_prev > 0:
                     P_prev = self._propagation_matrix(kz_list[i - 1], t_prev)
-                    amp = P_prev @ amp
+                    # P maps bottom→top (A_top = P·A_bottom); to propagate
+                    # forward (top→bottom) we need A_bottom = P⁻¹·A_top.
+                    amp = np.linalg.solve(P_prev, amp)
 
             # Interface matrix from layer i-1 → layer i
             D = self._interface_matrix(n_list[i - 1], n_list[i],
