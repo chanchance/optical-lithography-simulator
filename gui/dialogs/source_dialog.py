@@ -352,13 +352,13 @@ class SourceDialog(QDialog):
         for sigma, label_str in [(0.25, '0.25'), (0.5, '0.5'), (0.75, '0.75')]:
             ring = mpatches.Circle(
                 (0, 0), sigma, fill=False,
-                edgecolor='#bbbbbb', linewidth=0.8, linestyle='--'
+                edgecolor=theme.BORDER, linewidth=0.8, linestyle='--'
             )
             ax.add_patch(ring)
             ax.text(
                 sigma * 0.707 + 0.02, sigma * 0.707 + 0.02,
                 'σ={}'.format(label_str),
-                fontsize=7, color='#999999', ha='left', va='bottom'
+                fontsize=7, color=theme.TEXT_TERTIARY, ha='left', va='bottom'
             )
 
     def _draw_sigma_refs(self, ax, s_o, s_i, itype):
@@ -493,7 +493,7 @@ class SourceDialog(QDialog):
             ax.add_patch(mpatches.Circle(
                 (0, 0), s_o, color=fill_color, alpha=0.72))
             ax.add_patch(mpatches.Circle(
-                (0, 0), s_i, color='#f4f6f9', alpha=1.0))
+                (0, 0), s_i, color=theme.BG_SECONDARY, alpha=1.0))
 
         elif itype == 'quadrupole':
             offset = (s_o + s_i) / 2.0
@@ -557,7 +557,7 @@ class SourceDialog(QDialog):
 
         # NA boundary on scatter
         ax_s.add_patch(mpatches.Circle(
-            (0, 0), 1.0, fill=False, edgecolor='#222222', linewidth=1.5
+            (0, 0), 1.0, fill=False, edgecolor=theme.TEXT_PRIMARY, linewidth=1.5
         ))
         ax_s.set_title(
             "Discrete Source Points  (N={})".format(n_pts),

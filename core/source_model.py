@@ -410,6 +410,7 @@ class FreeformSource(BaseSource):
         """Set individual pixel (for interactive painting)."""
         if 0 <= row < self.pupil_size and 0 <= col < self.pupil_size:
             self._map[row, col] = np.clip(value, 0.0, 1.0)
+            self._points = None  # invalidate cached source points
 
     def save(self, path: str) -> None:
         """Save map to .npy or .csv."""
