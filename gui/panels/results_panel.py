@@ -105,6 +105,7 @@ class ResultsPanel(QWidget):
         # Button widgets
         self.export_png_btn   = QPushButton("Export PNG")
         self.export_pdf_btn   = QPushButton("Export PDF")
+        self.export_data_btn  = QPushButton("Export Data...")
         self.copy_table_btn   = QPushButton("Copy Table")
         self.add_gauge_btn    = QPushButton("Add Gauge")
         self.clear_gauges_btn = QPushButton("Clear Gauges")
@@ -129,6 +130,8 @@ class ResultsPanel(QWidget):
 
         self.export_png_btn.clicked.connect(lambda: self._export("png"))
         self.export_pdf_btn.clicked.connect(lambda: self._export("pdf"))
+        self.export_data_btn.clicked.connect(lambda: self._export("data"))
+        self.export_data_btn.setToolTip("Export CSV / HDF5 / PNG (via exporter) / Text report")
         self.copy_table_btn.clicked.connect(self._copy_table_to_clipboard)
         self.add_gauge_btn.clicked.connect(self._toggle_gauge_mode)
         self.clear_gauges_btn.clicked.connect(self._clear_gauges)
@@ -160,7 +163,7 @@ class ResultsPanel(QWidget):
         _grp_export_lay = QVBoxLayout(_grp_export)
         _grp_export_lay.setSpacing(4)
         _grp_export_lay.setContentsMargins(6, 6, 6, 6)
-        for w in (self.export_png_btn, self.export_pdf_btn, self.copy_table_btn):
+        for w in (self.export_png_btn, self.export_pdf_btn, self.export_data_btn, self.copy_table_btn):
             _grp_export_lay.addWidget(w)
         right_layout.addWidget(_grp_export)
 

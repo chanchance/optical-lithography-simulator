@@ -112,9 +112,10 @@ class ResultsExporter:
         # an error when a Qt backend is already active (e.g. called from GUI)
         from matplotlib.figure import Figure
         from matplotlib.gridspec import GridSpec
+        from gui import theme
 
         fig = Figure(figsize=(14, 9), dpi=dpi)
-        fig.patch.set_facecolor('#1a1a2e')
+        fig.patch.set_facecolor(theme.BG_PRIMARY)
         gs = GridSpec(2, 3, figure=fig, hspace=0.4, wspace=0.35)
 
         ax_aerial  = fig.add_subplot(gs[0, 0])
@@ -132,15 +133,15 @@ class ResultsExporter:
                                   origin='lower', vmin=0, vmax=vmax_ai, extent=extent,
                                   aspect='auto')
             fig.colorbar(im, ax=ax_aerial, fraction=0.046)
-        ax_aerial.set_title('Aerial Image', color='white')
-        ax_aerial.set_facecolor('#16213e')
+        ax_aerial.set_title('Aerial Image', color=theme.TEXT_PRIMARY)
+        ax_aerial.set_facecolor(theme.BG_SECONDARY)
 
         # Mask
         if result.mask_grid is not None:
             ax_mask.imshow(result.mask_grid, cmap='gray', origin='lower',
                            extent=extent, aspect='auto')
-        ax_mask.set_title('Mask', color='white')
-        ax_mask.set_facecolor('#16213e')
+        ax_mask.set_title('Mask', color=theme.TEXT_PRIMARY)
+        ax_mask.set_facecolor(theme.BG_SECONDARY)
 
         # Overlay
         if result.aerial_image is not None and result.mask_grid is not None:
@@ -151,8 +152,8 @@ class ResultsExporter:
             cy = np.linspace(extent[2], extent[3], ny) if extent else np.arange(ny)
             ax_overlay.contour(cx, cy, result.mask_grid, levels=[0.5],
                                colors='cyan', linewidths=0.8)
-        ax_overlay.set_title('Overlay', color='white')
-        ax_overlay.set_facecolor('#16213e')
+        ax_overlay.set_title('Overlay', color=theme.TEXT_PRIMARY)
+        ax_overlay.set_facecolor(theme.BG_SECONDARY)
 
         # Cross-section: pick direction with more threshold crossings
         if result.aerial_image is not None:
@@ -178,24 +179,24 @@ class ResultsExporter:
                           label='Threshold {:.2f}'.format(threshold))
             ax_cs.set_ylim(0, max(1.0, float(profile.max())) * 1.05)
             ax_cs.legend(fontsize=8)
-            ax_cs.set_facecolor('#16213e')
+            ax_cs.set_facecolor(theme.BG_SECONDARY)
         else:
             cs_title = 'Cross-section'
-        ax_cs.set_title(cs_title, color='white')
+        ax_cs.set_title(cs_title, color=theme.TEXT_PRIMARY)
 
         # Metrics text panel
-        ax_text.set_facecolor('#16213e')
+        ax_text.set_facecolor(theme.BG_SECONDARY)
         ax_text.set_axis_off()
         lines = ['{}: {}'.format(k, v) for k, v in self._metrics_rows(result)]
         ax_text.text(0.05, 0.95, '\n'.join(lines),
                      transform=ax_text.transAxes, va='top', ha='left',
-                     fontsize=8, color='white', family='monospace')
-        ax_text.set_title('Metrics', color='white')
+                     fontsize=8, color=theme.TEXT_PRIMARY, family='monospace')
+        ax_text.set_title('Metrics', color=theme.TEXT_PRIMARY)
 
         for ax in [ax_aerial, ax_mask, ax_overlay, ax_cs, ax_text]:
-            ax.tick_params(colors='#aaaaaa', labelsize=7)
+            ax.tick_params(colors=theme.TEXT_SECONDARY, labelsize=7)
             for spine in ax.spines.values():
-                spine.set_color('#333355')
+                spine.set_color(theme.BORDER)
 
         fig.savefig(path, dpi=dpi, bbox_inches='tight', facecolor=fig.get_facecolor())
 

@@ -424,12 +424,12 @@ class MainWindow(QMainWindow):
                 for e in errors:
                     lines.append('<span style="color:red;">&bull; {}: {}</span>'.format(e.field, e.message))
             if warnings:
-                lines.append('<span style="color:#b8860b;font-weight:bold;">Warnings:</span>')
+                lines.append('<span style="color:{};font-weight:bold;">Warnings:</span>'.format(theme.WARNING))
                 for w in warnings:
-                    lines.append('<span style="color:#b8860b;">&bull; {}: {}</span>'.format(w.field, w.message))
+                    lines.append('<span style="color:{};">&bull; {}: {}</span>'.format(theme.WARNING, w.field, w.message))
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle('Config Validation')
-            msg_box.setTextFormat(1)  # Qt.RichText
+            msg_box.setTextFormat(Qt.RichText)
             msg_box.setText('<br>'.join(lines))
             if errors:
                 msg_box.setIcon(QMessageBox.Critical)
